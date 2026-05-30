@@ -4,7 +4,8 @@ import { useConfig, clearSession } from "@/lib/configStore";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Sparkles, ListTree, Workflow, Phone, Package,
-  Calculator, CalendarClock, KeyRound, LogOut, ExternalLink, Menu, X
+  Calculator, CalendarClock, KeyRound, LogOut, ExternalLink, Menu, X,
+  MessageSquareQuote, HelpCircle
 } from "lucide-react";
 
 const MENU = [
@@ -15,6 +16,8 @@ const MENU = [
       { to: "/admin/hero", label: "Hero Section", icon: Sparkles },
       { to: "/admin/keunggulan", label: "Keunggulan", icon: ListTree },
       { to: "/admin/cara-kerja", label: "Cara Kerja", icon: Workflow },
+      { to: "/admin/testimoni", label: "Testimoni", icon: MessageSquareQuote },
+      { to: "/admin/faq", label: "FAQ", icon: HelpCircle },
       { to: "/admin/footer", label: "Footer & Kontak", icon: Phone },
     ],
   },

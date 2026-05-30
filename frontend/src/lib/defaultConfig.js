@@ -178,6 +178,81 @@ export const defaultConfig = {
       twoYear: { label: "Per 2 Tahun", sublabel: "Hemat Terbanyak" },
     },
   },
+  testimonials: {
+    title: "Apa Kata Mereka",
+    subtitle: "Kisah nyata UMKM yang udah punya toko online sendiri.",
+    items: [
+      {
+        id: "t1",
+        name: "Sari Wulandari",
+        business: "Kopi Senja, Yogyakarta",
+        message:
+          "Sejak punya toko sendiri, pelanggan repeat order lewat WA. Gak perlu nunggu marketplace approve, gak ada potongan komisi. Omzet naik 2x lipat dalam 3 bulan!",
+        rating: 5,
+        photo: "",
+      },
+      {
+        id: "t2",
+        name: "Bayu Pratama",
+        business: "Batik Lintang, Solo",
+        message:
+          "Awalnya ragu karena saya gak ngerti IT. Ternyata gampang banget kelola sendiri. Sekarang pelanggan dari Singapura & Malaysia bisa langsung beli dari website kami.",
+        rating: 5,
+        photo: "",
+      },
+      {
+        id: "t3",
+        name: "Dewi Anggraeni",
+        business: "Hijab Ayyana, Bandung",
+        message:
+          "Saya pakai paket Growth. Tampilan tokonya profesional banget, pembeli langsung percaya. Customer service tim TokoKu juga responsif kalau ada pertanyaan.",
+        rating: 5,
+        photo: "",
+      },
+    ],
+  },
+  faqs: {
+    title: "Pertanyaan yang Sering Ditanya",
+    subtitle: "Masih ragu? Mungkin jawabannya ada di sini.",
+    items: [
+      {
+        id: "f1",
+        question: "Berapa lama proses pembuatan tokonya?",
+        answer:
+          "Setelah pembayaran setup masuk dan kami terima brief lengkap (logo, daftar produk, foto), toko online kamu siap online dalam 3–5 hari kerja.",
+      },
+      {
+        id: "f2",
+        question: "Apakah saya perlu bisa coding atau jago IT?",
+        answer:
+          "Tidak sama sekali. Dashboard admin dirancang sangat sederhana — kalau kamu bisa pakai Instagram atau Shopee, kamu pasti bisa kelola toko ini sendiri. Kami juga sediakan video panduan singkat.",
+      },
+      {
+        id: "f3",
+        question: "Bagaimana cara pembayaran dari pembeli?",
+        answer:
+          "Saat ini pembayaran dilakukan via transfer bank atau e-wallet, dengan konfirmasi otomatis ke WhatsApp kamu. Untuk paket Pro, kami bisa integrasikan payment gateway (Midtrans/Xendit) atas permintaan.",
+      },
+      {
+        id: "f4",
+        question: "Kalau saya berhenti perpanjang domain, data saya hilang?",
+        answer:
+          "Tidak. Data produk & pelanggan tetap kami simpan selama 6 bulan setelah masa aktif berakhir. Kamu bisa perpanjang kapan saja dalam periode tersebut dan toko kamu kembali aktif tanpa kehilangan apapun.",
+      },
+      {
+        id: "f5",
+        question: "Apakah ada biaya tambahan tersembunyi?",
+        answer:
+          "Tidak ada. Biaya yang kamu bayar hanya: (1) setup sekali bayar, dan (2) sewa domain sesuai durasi yang kamu pilih. Tidak ada komisi per transaksi, tidak ada biaya iklan internal.",
+      },
+      {
+        id: "f6",
+        question: "Bisa upgrade dari paket Basic ke Growth/Pro nanti?",
+        answer:
+          "Sangat bisa. Kamu cukup bayar selisih harga setup-nya saja, fitur tambahan langsung aktif di hari yang sama tanpa harus pindah domain atau bangun ulang.",
+      },
+    ],
+  },
 };
 
 export const defaultCredentials = {

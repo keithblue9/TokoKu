@@ -39,6 +39,8 @@ export default function Footer() {
               <li><a href="#keunggulan" className="text-slate-400 hover:text-white transition">Kenapa Toko Sendiri</a></li>
               <li><a href="#paket" className="text-slate-400 hover:text-white transition">Paket & Harga</a></li>
               <li><a href="#cara-kerja" className="text-slate-400 hover:text-white transition">Cara Kerja</a></li>
+              <li><a href="#testimoni" className="text-slate-400 hover:text-white transition">Testimoni</a></li>
+              <li><a href="#faq" className="text-slate-400 hover:text-white transition">FAQ</a></li>
               <li><a href="#domain" className="text-slate-400 hover:text-white transition">Perpanjang Domain</a></li>
             </ul>
           </div>

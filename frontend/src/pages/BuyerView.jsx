@@ -4,6 +4,8 @@ import Hero from "@/components/buyer/Hero";
 import WhyOwnStore from "@/components/buyer/WhyOwnStore";
 import Pricing from "@/components/buyer/Pricing";
 import HowItWorks from "@/components/buyer/HowItWorks";
+import Testimonials from "@/components/buyer/Testimonials";
+import FAQ from "@/components/buyer/FAQ";
 import DomainRenewal from "@/components/buyer/DomainRenewal";
 import Footer from "@/components/buyer/Footer";
 import { useConfig } from "@/lib/configStore";
@@ -51,6 +53,8 @@ export default function BuyerView() {
       <WhyOwnStore />
       <Pricing />
       <HowItWorks />
+      <Testimonials />
+      <FAQ />
       <DomainRenewal />
       <Footer />
     </div>

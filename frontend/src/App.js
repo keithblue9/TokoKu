@@ -13,6 +13,8 @@ import PaketEdit from "@/pages/admin/PaketEdit";
 import HargaCalc from "@/pages/admin/HargaCalc";
 import DomainEdit from "@/pages/admin/DomainEdit";
 import PasswordChange from "@/pages/admin/PasswordChange";
+import TestimonialsEdit from "@/pages/admin/TestimonialsEdit";
+import FAQEdit from "@/pages/admin/FAQEdit";
 import { getSession } from "@/lib/configStore";
 
 function RequireAuth({ children }) {
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="hero" element={<HeroEdit />} />
             <Route path="keunggulan" element={<KeunggulanEdit />} />
             <Route path="cara-kerja" element={<CaraKerjaEdit />} />
+            <Route path="testimoni" element={<TestimonialsEdit />} />
+            <Route path="faq" element={<FAQEdit />} />
             <Route path="footer" element={<FooterEdit />} />
             <Route path="paket" element={<PaketEdit />} />
             <Route path="harga" element={<HargaCalc />} />
