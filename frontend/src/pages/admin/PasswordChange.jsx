@@ -34,13 +34,18 @@ export default function PasswordChange() {
     setOldPin(""); setNewPin(""); setConfirmPin("");
   };
 
-  const PinField = ({ label, value, onChange, testid }) => (
+  const PinField = ({ label, value, onChange, testid, slotPrefix }) => (
     <div>
       <Label className="text-sm font-semibold mb-2 block">{label}</Label>
       <InputOTP maxLength={6} value={value} onChange={(v) => onChange(v.replace(/\D/g, ""))} inputMode="numeric">
         <InputOTPGroup className="gap-2" data-testid={testid}>
           {[0,1,2,3,4,5].map((i) => (
-            <InputOTPSlot key={i} index={i} className="w-11 h-12 text-lg font-bold border border-slate-300 first:rounded-l-xl last:rounded-r-xl rounded-xl bg-white" />
+            <InputOTPSlot
+              key={i}
+              index={i}
+              className="w-11 h-12 text-lg font-bold border border-slate-300 first:rounded-l-xl last:rounded-r-xl rounded-xl bg-white"
+              data-testid={`${slotPrefix}-slot-${i}`}
+            />
           ))}
         </InputOTPGroup>
       </InputOTP>
@@ -59,9 +64,9 @@ export default function PasswordChange() {
           <KeyRound className="w-5 h-5" />
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <PinField label="PIN Lama" value={oldPin} onChange={setOldPin} testid="pwd-old-pin" />
-          <PinField label="PIN Baru (6 digit)" value={newPin} onChange={setNewPin} testid="pwd-new-pin" />
-          <PinField label="Konfirmasi PIN Baru" value={confirmPin} onChange={setConfirmPin} testid="pwd-confirm-pin" />
+          <PinField label="PIN Lama" value={oldPin} onChange={setOldPin} testid="pwd-old-pin" slotPrefix="pwd-pin-old" />
+          <PinField label="PIN Baru (6 digit)" value={newPin} onChange={setNewPin} testid="pwd-new-pin" slotPrefix="pwd-pin-new" />
+          <PinField label="Konfirmasi PIN Baru" value={confirmPin} onChange={setConfirmPin} testid="pwd-confirm-pin" slotPrefix="pwd-pin-confirm" />
 
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3" data-testid="pwd-error">

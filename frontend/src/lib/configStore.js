@@ -191,5 +191,12 @@ export function formatRupiah(n) {
 export function waLink(number, message) {
   const clean = (number || "").replace(/[^0-9]/g, "");
   const msg = encodeURIComponent(message || "");
+  // If number is just a placeholder (too short), don't generate a real wa.me URL
+  if (clean.length < 9) return `https://wa.me/?text=${msg}`;
   return `https://wa.me/${clean}?text=${msg}`;
+}
+
+export function isWhatsappConfigured(number) {
+  const clean = (number || "").replace(/[^0-9]/g, "");
+  return clean.length >= 9;
 }

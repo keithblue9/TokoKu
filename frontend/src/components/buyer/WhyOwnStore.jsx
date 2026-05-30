@@ -1,12 +1,13 @@
 import { useConfig } from "@/lib/configStore";
 import * as Icons from "lucide-react";
 
-function Card({ item }) {
+function Card({ item, isClone }) {
   const Icon = Icons[item.icon] || Icons.Sparkles;
   return (
     <div
       className="shrink-0 w-[300px] sm:w-[360px] bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 mr-5 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-      data-testid={`why-card-${item.id}`}
+      data-testid={isClone ? `why-card-${item.id}-clone` : `why-card-${item.id}`}
+      aria-hidden={isClone ? "true" : undefined}
     >
       <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-5">
         <Icon className="w-6 h-6" />
@@ -54,7 +55,7 @@ export default function WhyOwnStore() {
 
         <div className="flex marquee-track" data-testid="why-marquee" style={{ width: "max-content" }}>
           {doubled.map((item, i) => (
-            <Card key={`${item.id}-${i}`} item={item} />
+            <Card key={`${item.id}-${i}`} item={item} isClone={i >= items.length} />
           ))}
         </div>
       </div>

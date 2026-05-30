@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { useConfig } from "@/lib/configStore";
+import { useConfig, isWhatsappConfigured } from "@/lib/configStore";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ExternalLink, Sparkles, Package, Calculator, MessageCircle, Power } from "lucide-react";
+import { ExternalLink, Sparkles, Package, Calculator, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 function PageTitle({ title, subtitle }) {
@@ -35,6 +35,19 @@ export default function Dashboard() {
   return (
     <div data-testid="admin-dashboard">
       <PageTitle title="Selamat datang kembali!" subtitle="Ringkasan pengelolaan website kamu." />
+
+      {!isWhatsappConfigured(config.hero.whatsapp_number) && (
+        <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4" data-testid="wa-warning">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-amber-900">Nomor WhatsApp belum diatur</div>
+            <p className="text-sm text-amber-800 mt-0.5">
+              Nomor saat ini masih placeholder (<span className="font-mono">{config.hero.whatsapp_number}</span>). Tombol Chat WhatsApp belum akan mengarah ke nomor asli. Atur sekarang di{" "}
+              <Link to="/admin/hero" className="font-bold underline">Edit Hero Section</Link>.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <Card className="p-5 rounded-2xl border-slate-200" data-testid="stat-packages">
