@@ -1,0 +1,121 @@
+{
+  "theme": "LIGHT",
+  "archetype": "Custom: Empowering Modern Local",
+  "typography": {
+    "headings": {
+      "family": "'Plus Jakarta Sans', sans-serif",
+      "weights": ["700", "800"],
+      "styling": "tracking-tight, never center by default, expressive sizes",
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tighter text-slate-900",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900",
+      "h3": "text-xl sm:text-2xl font-bold text-slate-800"
+    },
+    "body": {
+      "family": "'Nunito', sans-serif",
+      "weights": ["400", "500", "600"],
+      "styling": "leading-relaxed",
+      "base": "text-base sm:text-lg text-slate-600",
+      "small": "text-sm text-slate-500"
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#6366F1",
+      "50": "#EEF2FF",
+      "100": "#E0E7FF",
+      "500": "#6366F1",
+      "600": "#4F46E5",
+      "900": "#312E81",
+      "usage": "Primary buttons, active states, key highlights. Limit usage to maintain impact."
+    },
+    "accent": {
+      "DEFAULT": "#F59E0B",
+      "100": "#FEF3C7",
+      "500": "#F59E0B",
+      "600": "#D97706",
+      "usage": "Secondary CTAs, featured pricing card tags, warning/attention elements."
+    },
+    "neutral": {
+      "background": "#FFFFFF",
+      "surface": "#F8FAFC",
+      "border": "#E2E8F0",
+      "text": "#0F172A",
+      "textMuted": "#64748B"
+    },
+    "success": {
+      "DEFAULT": "#10B981",
+      "whatsapp": "#25D366",
+      "usage": "Checkmarks in pricing, success toasts, WhatsApp CTA."
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing Philosophy. Use p-6, p-8, p-12 extensively. Mobile-first grids.",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "section_gap": "py-20 sm:py-32",
+    "bento_grid": "grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8",
+    "border_radius": "rounded-2xl or rounded-3xl for cards. Anti-pattern: sharp edges."
+  },
+  "surfaces_and_micro_themes": {
+    "cards": "bg-white border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 rounded-3xl p-6 sm:p-8",
+    "glass_header": "bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50",
+    "pricing_featured_card": "bg-indigo-50 border-2 border-indigo-500 shadow-xl relative overflow-hidden"
+  },
+  "animations": {
+    "carousel": "Use framer-motion or CSS keyframes for a continuous, smooth, un-skippable horizontal scroll for the 'Why own store' cards.",
+    "hover_states": "Buttons use scale-105 active:scale-95. Cards use subtle lift (-translate-y-1) and shadow pop.",
+    "page_transitions": "Fade in and slide up for sections using IntersectionObserver or framer-motion."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-indigo-500 text-white hover:bg-indigo-600 rounded-full px-6 py-3 font-bold transition-all shadow-md hover:shadow-lg",
+      "whatsapp": "bg-[#25D366] text-white hover:bg-[#128C7E] rounded-full px-6 py-3 font-bold transition-all flex items-center gap-2"
+    },
+    "inputs": "Shadcn standard but with rounded-xl, border-slate-300, focus:ring-2 focus:ring-indigo-500.",
+    "tabs": "Shadcn tabs but styled as a pill-switcher with rounded-full bg-slate-100 p-1"
+  },
+  "icons_library": "lucide-react",
+  "media": {
+    "images": [
+      {
+        "category": "hero",
+        "role": "main_visual_mockup",
+        "url": "https://static.prod-images.emergentagent.com/jobs/0fd3e276-4b2a-4c87-bda7-7b00875d381f/images/0e3d66674c0af2c331637a7236e57981b60fb54dfaf9bbd441ab71d8a1ff8355.png",
+        "description": "3D Isometric mobile e-commerce storefront popping out of screen."
+      },
+      {
+        "category": "hero",
+        "role": "background_blob",
+        "url": "https://static.prod-images.emergentagent.com/jobs/0fd3e276-4b2a-4c87-bda7-7b00875d381f/images/45ba22f84265d26b0cdfa1bd21633582aa1e9eb46750e97262d9fe807a4d2605.png",
+        "description": "Abstract fluid gradient background."
+      },
+      {
+        "category": "why_own_store",
+        "role": "umkm_representation_1",
+        "url": "https://images.pexels.com/photos/37682130/pexels-photo-37682130.jpeg",
+        "description": "Woman in hijab calculating sales in an Indonesian market."
+      },
+      {
+        "category": "why_own_store",
+        "role": "umkm_representation_2",
+        "url": "https://images.pexels.com/photos/36982086/pexels-photo-36982086.jpeg",
+        "description": "Chef at traditional Indonesian food stall."
+      },
+      {
+        "category": "testimonials",
+        "role": "smiling_owner",
+        "url": "https://images.unsplash.com/photo-1516011362164-3095a82b0af9",
+        "description": "Smiling man with turban."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "INSTALL GOOGLE FONTS: Ensure Plus Jakarta Sans and Nunito are added to the HTML head.",
+    "HERO SECTION: Overlay the 'main_visual_mockup' image on top of the 'background_blob'. Use a side-by-side split on desktop, stacked on mobile. Ensure WhatsApp CTA is prominent.",
+    "WHY OWN STORE CAROUSEL: Must be an auto-scrolling row of 6 bento-like cards. It should not be skippable (users see the scroll animation). Use framer-motion or simple CSS marquee.",
+    "PRICING TOGGLE: Implement Monthly / Yearly / 2-Year toggle that recalculates prices shown on the cards. Highlight the 'Growth' plan.",
+    "WHATSAPP CTA: Mandatory to include WhatsApp CTA in the Hero, on every Package card, and in the Footer.",
+    "ADMIN DASHBOARD: Use a clean sidebar layout. Implement state management entirely via localStorage for this MVP. Real-time preview should immediately read from localStorage.",
+    "ADMIN AUTH: Create a simple login mask asking for Email and a 6-digit PIN (use Shadcn InputOTP).",
+    "DATA-TESTID: Append data-testid to all interactive elements, CTA buttons, inputs, tab switchers, and pricing cards (e.g., data-testid='whatsapp-cta-hero')."
+  ]
+}
