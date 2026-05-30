@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft, MessageCircle, Star, Send, Clock, CheckCircle2, XCircle,
-  AlertCircle, RefreshCw, Trash2, Loader2, Copy, Calendar, ExternalLink
+  AlertCircle, RefreshCw, Trash2, Loader2, Copy, Calendar, ExternalLink, Receipt, Eye
 } from "lucide-react";
 
 const COLOR_CLS = {
@@ -154,6 +154,14 @@ export default function AdminOrderDetail() {
       {/* Action card based on status */}
       <ActionCard order={order} onPropose={() => setProposeOpen(true)} onReject={() => setRejectOpen(true)} onDeliver={() => setDeliverOpen(true)} onAcceptNego={() => action(() => api.sellerAcceptNegotiation(order.code), "Negosiasi diterima. Pengerjaan dimulai.")} />
 
+      {/* Payment verification card */}
+      {(order.status === "payment_review" || order.status === "settlement_review") && (
+        <PaymentVerificationCard order={order} onVerified={refresh} />
+      )}
+
+      {/* Payment summary */}
+      <PaymentSummaryCard order={order} />
+
       {/* Brief */}
       <Card className="p-6 rounded-3xl border-slate-200 mt-5">
         <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-3">Brief dari Buyer</h3>
@@ -206,6 +214,23 @@ export default function AdminOrderDetail() {
 
 function ActionCard({ order, onPropose, onReject, onDeliver, onAcceptNego }) {
   switch (order.status) {
+    case "awaiting_payment":
+      return (
+        <Card className="p-5 rounded-3xl border-2 border-amber-200 bg-amber-50/40" data-testid="action-card-awaiting-payment">
+          <h3 className="font-extrabold font-display text-lg text-slate-900">Menunggu pembayaran buyer</h3>
+          <p className="text-sm text-slate-600 mt-1">Buyer harus bayar <span className="font-bold">{order.payment_mode === "full" ? "Full" : `DP ${order.dp_percent || 50}%`}</span> dulu sebelum kerja dimulai. Estimasi timer mulai jalan setelah kamu verifikasi bukti transfer.</p>
+        </Card>
+      );
+    case "awaiting_settlement":
+      return (
+        <Card className="p-5 rounded-3xl border-2 border-amber-200 bg-amber-50/40" data-testid="action-card-awaiting-settlement">
+          <h3 className="font-extrabold font-display text-lg text-slate-900">Menunggu pelunasan buyer</h3>
+          <p className="text-sm text-slate-600 mt-1">Buyer sudah klik finish & masuk step pelunasan. Tunggu bukti transfer sisa pembayaran.</p>
+        </Card>
+      );
+    case "payment_review":
+    case "settlement_review":
+      return null; // handled by PaymentVerificationCard
     case "pending_review":
       return (
         <Card className="p-5 rounded-3xl border-2 border-amber-300 bg-amber-50/40" data-testid="action-card-pending">
@@ -303,6 +328,148 @@ function ActionCard({ order, onPropose, onReject, onDeliver, onAcceptNego }) {
     default:
       return null;
   }
+}
+
+function PaymentSummaryCard({ order }) {
+  const verified = (order.payments || []).filter((p) => p.status === "verified");
+  return (
+    <Card className="p-6 rounded-3xl border-slate-200 mt-5" data-testid="payment-summary-card">
+      <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4">Ringkasan Pembayaran</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div>
+          <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Mode</div>
+          <div className="font-bold text-slate-900 uppercase">{order.payment_mode || "dp"}</div>
+        </div>
+        <div>
+          <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Total</div>
+          <div className="font-bold text-slate-900">{formatRupiah(order.total_amount || 0)}</div>
+        </div>
+        <div>
+          <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Sudah Dibayar</div>
+          <div className="font-bold text-emerald-700">{formatRupiah(order.amount_paid || 0)}</div>
+        </div>
+        <div>
+          <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Sisa</div>
+          <div className="font-bold text-amber-700">{formatRupiah(Math.max(0, (order.total_amount || 0) - (order.amount_paid || 0)))}</div>
+        </div>
+      </div>
+      {(order.payments || []).length > 0 && (
+        <ul className="mt-4 space-y-2 text-xs">
+          {(order.payments || []).map((p) => (
+            <li key={p.id} className="flex items-start justify-between gap-2 p-2 rounded-lg border border-slate-100">
+              <div>
+                <span className="font-bold uppercase">{p.kind}</span> · {formatRupiah(p.amount)} via {p.method.replace("_", " ")}
+                <div className="text-slate-400">{formatDateTime(p.submitted_at)}</div>
+                {p.rejection_reason && <div className="text-red-600 mt-0.5">Ditolak: {p.rejection_reason}</div>}
+              </div>
+              <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${p.status === "verified" ? "bg-emerald-100 text-emerald-700" : p.status === "rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                {p.status}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function PaymentVerificationCard({ order, onVerified }) {
+  const [showProof, setShowProof] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const pending = (order.payments || []).slice().reverse().find((p) => p.status === "pending");
+  if (!pending) return null;
+
+  const handleVerify = async (verified) => {
+    if (!verified && rejectReason.trim().length < 3) {
+      toast.error("Mohon isi alasan penolakan.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.sellerVerifyPayment(order.code, pending.id, verified, rejectReason);
+      toast.success(verified ? "Pembayaran diverifikasi. Pengerjaan/Order dilanjutkan." : "Pembayaran ditolak. Buyer akan diminta upload ulang.");
+      onVerified?.();
+    } catch (e) {
+      toast.error(e.message || "Gagal verifikasi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="p-5 sm:p-6 rounded-3xl border-2 border-indigo-300 bg-indigo-50/50 mt-5" data-testid="payment-verification-card">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+          <Receipt className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-extrabold font-display text-lg text-slate-900">
+            {order.status === "settlement_review" ? "Verifikasi Pelunasan" : "Verifikasi Pembayaran"}
+          </h3>
+          <p className="text-sm text-slate-600 mt-1">Buyer sudah upload bukti. Cek detailnya lalu setujui atau tolak.</p>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-slate-500">Jenis</span><span className="font-bold uppercase">{pending.kind}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Nominal Bukti</span><span className="font-bold">{formatRupiah(pending.amount)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Yang Seharusnya</span><span className="font-bold">{formatRupiah(pending.kind === "settlement" ? order.settlement_amount : pending.kind === "dp" ? order.dp_amount : order.total_amount)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Metode</span><span className="font-bold uppercase">{pending.method.replace("_", " ")}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Diterima</span><span className="font-bold text-xs">{formatDateTime(pending.submitted_at)}</span></div>
+          {pending.note && (
+            <div className="pt-2 border-t border-slate-100">
+              <div className="text-slate-500 text-xs">Catatan buyer:</div>
+              <div className="italic text-slate-700">"{pending.note}"</div>
+            </div>
+          )}
+        </div>
+        <div>
+          {pending.proof_image ? (
+            <button onClick={() => setShowProof(true)} className="block w-full" data-testid="open-proof">
+              <img src={pending.proof_image} alt="Bukti" className="w-full max-h-48 object-contain rounded-2xl border border-slate-200 bg-white" />
+              <div className="text-xs text-indigo-600 font-bold mt-2 inline-flex items-center gap-1"><Eye className="w-3 h-3" /> Klik untuk perbesar</div>
+            </button>
+          ) : (
+            <div className="text-sm text-slate-400 italic">Tidak ada bukti.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 pt-5 border-t border-slate-100">
+        {!rejecting ? (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={() => handleVerify(true)} disabled={busy} className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="verify-accept">
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Verifikasi & Lanjut
+            </Button>
+            <Button onClick={() => setRejecting(true)} disabled={busy} variant="outline" className="rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 font-bold" data-testid="verify-reject">
+              <XCircle className="w-4 h-4 mr-2" /> Tolak Bukti
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Textarea rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Alasan penolakan (akan dilihat buyer)" className="rounded-xl" data-testid="verify-reject-reason" />
+            <div className="flex gap-2">
+              <Button onClick={() => handleVerify(false)} disabled={busy} variant="destructive" className="rounded-full font-bold" data-testid="verify-reject-submit">
+                Konfirmasi Tolak
+              </Button>
+              <Button onClick={() => setRejecting(false)} disabled={busy} variant="ghost" className="rounded-full">
+                Batal
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showProof} onOpenChange={setShowProof}>
+        <DialogContent className="max-w-3xl rounded-3xl p-3 sm:p-4">
+          <img src={pending.proof_image} alt="Bukti pembayaran" className="w-full max-h-[80vh] object-contain rounded-2xl" />
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
 }
 
 function DeliveriesCard({ order }) {

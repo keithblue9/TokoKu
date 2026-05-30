@@ -43,6 +43,12 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
+SMALL_PNG = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII="
+)
+
+
 def _create_order(session, package_id="growth", package_name="Growth"):
     payload = {
         "buyer_name": "TEST Buyer",
@@ -51,10 +57,28 @@ def _create_order(session, package_id="growth", package_name="Growth"):
         "buyer_brief": "Saya butuh website toko online untuk jualan",
         "package_id": package_id,
         "package_name": package_name,
+        "package_setup_price": 100000,
+        "package_domain_price": 100000,
+        "payment_mode": "full",
     }
     r = session.post(f"{API}/orders", json=payload)
     assert r.status_code == 200, r.text
     return r.json()
+
+
+def _pay_and_verify(session, auth_headers, code, tracking_token):
+    """After buyer accept (status=awaiting_payment), submit full payment and verify so order is in_progress."""
+    full = session.get(f"{API}/orders/track/{tracking_token}").json()
+    r = session.post(f"{API}/orders/track/{tracking_token}/payment", json={
+        "kind": "full", "amount": full["total_amount"],
+        "method": "bank_transfer", "proof_image": SMALL_PNG,
+    })
+    assert r.status_code == 200, r.text
+    pid = r.json()["payments"][-1]["id"]
+    r = session.post(f"{API}/admin/orders/{code}/verify-payment",
+                     json={"payment_id": pid, "verified": True}, headers=auth_headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "in_progress"
 
 
 # ---------------- Auth ----------------
@@ -164,13 +188,19 @@ class TestHappyPath:
         assert r.json()["status"] == "awaiting_buyer"
         assert r.json()["proposed_days"] == 7
 
-        # Buyer accept
+        # Buyer accept -> awaiting_payment (new behaviour)
         r = session.post(f"{API}/orders/track/{token}/accept")
         assert r.status_code == 200
         body = r.json()
-        assert body["status"] == "in_progress"
-        assert body["started_at"] and body["expected_finish_at"]
+        assert body["status"] == "awaiting_payment"
         assert body["accepted_days"] == 7
+        assert body["started_at"] is None
+
+        # Pay + verify -> in_progress
+        _pay_and_verify(session, auth_headers, code, token)
+        cur = session.get(f"{API}/admin/orders/{code}", headers=auth_headers).json()
+        assert cur["status"] == "in_progress"
+        assert cur["started_at"] and cur["expected_finish_at"]
 
         # Seller deliver
         r = session.post(f"{API}/admin/orders/{code}/deliver",
@@ -232,8 +262,9 @@ class TestNegotiation:
         r = session.post(f"{API}/admin/orders/{code}/accept-negotiation", headers=auth_headers)
         assert r.status_code == 200
         body = r.json()
-        assert body["status"] == "in_progress"
+        assert body["status"] == "awaiting_payment"
         assert body["accepted_days"] == 10
+        _pay_and_verify(session, auth_headers, code, token)
 
         # Cleanup
         session.delete(f"{API}/admin/orders/{code}", headers=auth_headers)
@@ -246,6 +277,7 @@ def _to_delivered(session, auth_headers, package_id):
     session.post(f"{API}/admin/orders/{code}/propose",
                  json={"proposed_days": 3}, headers=auth_headers)
     session.post(f"{API}/orders/track/{token}/accept")
+    _pay_and_verify(session, auth_headers, code, token)
     session.post(f"{API}/admin/orders/{code}/deliver",
                  json={"url": "https://test.com/v1"}, headers=auth_headers)
     return code, token

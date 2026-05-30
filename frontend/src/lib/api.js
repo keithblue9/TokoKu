@@ -64,10 +64,19 @@ export const api = {
   buyerRequestRevision: (token, message) =>
     request("POST", `/orders/track/${token}/request-revision`, { body: { message } }),
   buyerFinish: (token) => request("POST", `/orders/track/${token}/finish`),
+  buyerRequestFinish: (token) => request("POST", `/orders/track/${token}/request-finish`),
+  buyerSubmitPayment: (token, payload) =>
+    request("POST", `/orders/track/${token}/payment`, { body: payload }),
   buyerReview: (token, rating, message) =>
     request("POST", `/orders/track/${token}/review`, { body: { rating, message } }),
   buyerMessage: (token, text) =>
     request("POST", `/orders/track/${token}/message`, { body: { text } }),
+
+  // Settings
+  getPaymentSettings: () => request("GET", "/settings/payment"),
+  getPaymentSettingsAdmin: () => request("GET", "/admin/settings/payment", { auth: true }),
+  updatePaymentSettings: (payload) =>
+    request("PUT", "/admin/settings/payment", { body: payload, auth: true }),
 
   // Orders (admin)
   listOrders: () => request("GET", "/admin/orders", { auth: true }),
@@ -84,6 +93,11 @@ export const api = {
     request("POST", `/admin/orders/${code}/message`, { body: { text }, auth: true }),
   sellerToggleReview: (code, visible) =>
     request("POST", `/admin/orders/${code}/toggle-review-visibility`, { body: { visible }, auth: true }),
+  sellerVerifyPayment: (code, payment_id, verified, rejection_reason = "") =>
+    request("POST", `/admin/orders/${code}/verify-payment`, {
+      body: { payment_id, verified, rejection_reason },
+      auth: true,
+    }),
   sellerDelete: (code) => request("DELETE", `/admin/orders/${code}`, { auth: true }),
 
   // Public reviews
@@ -96,9 +110,13 @@ export const STATUS_META = {
   awaiting_buyer: { label: "Menunggu Keputusan Buyer", color: "indigo", buyerLabel: "Penawaran Durasi dari Seller — Tindakan Diperlukan" },
   negotiating: { label: "Negosiasi dari Buyer", color: "amber", buyerLabel: "Menunggu Keputusan Seller atas Negosiasi" },
   rejected: { label: "Ditolak Seller", color: "red", buyerLabel: "Order Ditolak Seller" },
+  awaiting_payment: { label: "Menunggu Pembayaran DP/Lunas", color: "amber", buyerLabel: "Bayar untuk Mulai Pengerjaan" },
+  payment_review: { label: "Verifikasi Pembayaran", color: "indigo", buyerLabel: "Pembayaran Sedang Diverifikasi" },
   in_progress: { label: "Dikerjakan", color: "indigo", buyerLabel: "Sedang Dikerjakan" },
   delivered: { label: "Sudah Diserahkan", color: "emerald", buyerLabel: "Hasil Siap — Tindakan Diperlukan" },
   revision_requested: { label: "Revisi Diminta", color: "amber", buyerLabel: "Revisi Sedang Dikerjakan Seller" },
+  awaiting_settlement: { label: "Menunggu Pelunasan", color: "amber", buyerLabel: "Lunasi Sisa Pembayaran" },
+  settlement_review: { label: "Verifikasi Pelunasan", color: "indigo", buyerLabel: "Pelunasan Sedang Diverifikasi" },
   completed: { label: "Selesai", color: "emerald", buyerLabel: "Selesai" },
   cancelled: { label: "Dibatalkan", color: "slate", buyerLabel: "Dibatalkan" },
 };

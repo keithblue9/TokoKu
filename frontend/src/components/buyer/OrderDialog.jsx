@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { useConfig, computePackagePrices, formatRupiah } from "@/lib/configStore";
 import { toast } from "sonner";
-import { AlertCircle, MessageCircle, CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { AlertCircle, MessageCircle, CheckCircle2, Copy, ExternalLink, Banknote, CreditCard } from "lucide-react";
 
 export default function OrderDialog({ open, onOpenChange, packageId, duration = "yearly" }) {
   const { config } = useConfig();
@@ -20,14 +20,27 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
   const [whatsapp, setWhatsapp] = useState("");
   const [business, setBusiness] = useState("");
   const [brief, setBrief] = useState("");
+  const [paymentMode, setPaymentMode] = useState("dp");
+  const [dpPercent, setDpPercent] = useState(50);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [created, setCreated] = useState(null); // {code, tracking_token}
+  const [created, setCreated] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      api.getPaymentSettings().then((s) => setDpPercent(s.dp_percent || 50)).catch(() => {});
+    }
+  }, [open]);
 
   if (!pkg) return null;
 
+  const domainPrice = duration === "monthly" ? prices.monthly : duration === "twoYear" ? prices.twoYear : prices.yearly;
+  // First year billing total
+  const total = duration === "monthly" ? prices.totalFirstYearMonthly : duration === "twoYear" ? (prices.setup + prices.twoYear) : prices.totalFirstYearYearly;
+  const dpAmount = Math.round(total * dpPercent / 100);
+
   const reset = () => {
-    setName(""); setWhatsapp(""); setBusiness(""); setBrief("");
+    setName(""); setWhatsapp(""); setBusiness(""); setBrief(""); setPaymentMode("dp");
     setError(""); setCreated(null);
   };
 
@@ -41,7 +54,6 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
     if (brief.trim().length < 10) return setError("Brief minimal 10 karakter.");
     setSubmitting(true);
     try {
-      const domainPrice = duration === "monthly" ? prices.monthly : duration === "twoYear" ? prices.twoYear : prices.yearly;
       const res = await api.createOrder({
         buyer_name: name,
         buyer_whatsapp: wa,
@@ -52,8 +64,8 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
         duration_choice: duration,
         package_setup_price: prices.setup,
         package_domain_price: domainPrice,
+        payment_mode: paymentMode,
       });
-      // Persist tracking link in browser so buyer can find it again
       try {
         const arr = JSON.parse(localStorage.getItem("tokoku_my_orders") || "[]");
         arr.unshift({ code: res.code, token: res.tracking_token, package: pkg.name, at: Date.now() });
@@ -116,6 +128,34 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
               <div>
                 <Label className="text-sm font-semibold mb-1.5 block">Brief Singkat</Label>
                 <Textarea rows={4} value={brief} onChange={(e) => setBrief(e.target.value)} className="rounded-xl" placeholder="Cerita singkat soal bisnismu: jual apa, target pasar, style yang kamu suka, dll." data-testid="order-brief" />
+              </div>
+
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Cara Pembayaran</Label>
+                <div className="grid grid-cols-2 gap-2" data-testid="payment-mode-selector">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("dp")}
+                    className={`text-left rounded-2xl p-3 border-2 transition ${paymentMode === "dp" ? "border-indigo-600 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}
+                    data-testid="payment-mode-dp"
+                  >
+                    <Banknote className={`w-5 h-5 mb-1.5 ${paymentMode === "dp" ? "text-indigo-600" : "text-slate-400"}`} />
+                    <div className="font-extrabold text-sm text-slate-900">DP {dpPercent}%</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Bayar sekarang {formatRupiah(dpAmount)}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Lunas saat hasil siap</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("full")}
+                    className={`text-left rounded-2xl p-3 border-2 transition ${paymentMode === "full" ? "border-indigo-600 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}
+                    data-testid="payment-mode-full"
+                  >
+                    <CreditCard className={`w-5 h-5 mb-1.5 ${paymentMode === "full" ? "text-indigo-600" : "text-slate-400"}`} />
+                    <div className="font-extrabold text-sm text-slate-900">Full Payment</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Bayar sekali {formatRupiah(total)}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">No ribet di akhir</div>
+                  </button>
+                </div>
               </div>
 
               {error && (

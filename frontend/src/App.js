@@ -14,6 +14,7 @@ import PaketEdit from "@/pages/admin/PaketEdit";
 import HargaCalc from "@/pages/admin/HargaCalc";
 import DomainEdit from "@/pages/admin/DomainEdit";
 import PasswordChange from "@/pages/admin/PasswordChange";
+import PaymentSettings from "@/pages/admin/PaymentSettings";
 import TestimonialsEdit from "@/pages/admin/TestimonialsEdit";
 import FAQEdit from "@/pages/admin/FAQEdit";
 import AdminOrders from "@/pages/admin/Orders";
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="paket" element={<PaketEdit />} />
             <Route path="harga" element={<HargaCalc />} />
             <Route path="domain" element={<DomainEdit />} />
+            <Route path="pembayaran" element={<PaymentSettings />} />
             <Route path="password" element={<PasswordChange />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   LayoutDashboard, Sparkles, ListTree, Workflow, Phone, Package,
   Calculator, CalendarClock, KeyRound, LogOut, ExternalLink, Menu, X,
-  MessageSquareQuote, HelpCircle, ClipboardList
+  MessageSquareQuote, HelpCircle, ClipboardList, Wallet
 } from "lucide-react";
 
 const MENU = [
@@ -34,6 +34,7 @@ const MENU = [
       { to: "/admin/paket", label: "Pengaturan Paket", icon: Package },
       { to: "/admin/harga", label: "Kalkulator Harga", icon: Calculator },
       { to: "/admin/domain", label: "Opsi Perpanjang Domain", icon: CalendarClock },
+      { to: "/admin/pembayaran", label: "Pengaturan Pembayaran", icon: Wallet },
     ],
   },
   {

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PaymentSection, { PaymentReviewBanner } from "@/components/buyer/PaymentSection";
 import { toast } from "sonner";
 import {
   ArrowLeft, MessageCircle, Star, Send, Clock, CheckCircle2, XCircle,
@@ -220,9 +221,12 @@ export default function OrderTrackPage() {
               <div className="flex-1">
                 <h3 className="font-extrabold font-display text-lg text-slate-900">Seller mengajukan durasi {order.proposed_days} hari kerja</h3>
                 {order.proposal_note && <p className="text-sm text-slate-700 mt-1">Catatan seller: <em>{order.proposal_note}</em></p>}
+                <div className="bg-white/60 rounded-xl p-3 mt-3 text-xs text-slate-600">
+                  Setelah kamu accept, lanjut ke step pembayaran ({order.payment_mode === "full" ? "Full" : `DP ${order.dp_percent || 50}%`} = {formatRupiah(order.payment_mode === "full" ? order.total_amount : order.dp_amount)}).
+                </div>
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                  <Button onClick={() => action(() => api.buyerAccept(token), "Order diterima! Pengerjaan dimulai.")} className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="action-accept">
-                    <ThumbsUp className="w-4 h-4 mr-2" /> Setuju & Mulai Pengerjaan
+                  <Button onClick={() => action(() => api.buyerAccept(token), "Order diterima! Lanjut ke pembayaran.")} className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="action-accept">
+                    <ThumbsUp className="w-4 h-4 mr-2" /> Setuju & Lanjut Bayar
                   </Button>
                   <Button onClick={() => setNegotiateOpen(true)} variant="outline" className="rounded-full font-bold" data-testid="action-negotiate">
                     <ThumbsDown className="w-4 h-4 mr-2" /> Nego Durasi
@@ -231,6 +235,14 @@ export default function OrderTrackPage() {
               </div>
             </div>
           </Card>
+        )}
+
+        {(order.status === "awaiting_payment" || order.status === "awaiting_settlement") && (
+          <PaymentSection order={order} onSubmitted={(o) => setOrder(o)} />
+        )}
+
+        {(order.status === "payment_review" || order.status === "settlement_review") && (
+          <PaymentReviewBanner order={order} />
         )}
 
         {order.status === "in_progress" && order.started_at && (
@@ -252,9 +264,20 @@ export default function OrderTrackPage() {
                 <div className="text-xs text-slate-500 mt-2">
                   Jatah revisi: <span className="font-bold">{order.revisions_used}/{order.revisions_allowed}</span> terpakai
                 </div>
+                {order.payment_mode === "dp" && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>Setelah finish, kamu akan diarahkan ke step <strong>pelunasan</strong> {formatRupiah(order.settlement_amount)}.</span>
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                  <Button onClick={() => setReviewOpen(true)} className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" data-testid="action-finish">
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Finish & Beri Review
+                  <Button
+                    onClick={() => action(() => api.buyerRequestFinish(token), order.payment_mode === "dp" ? "Lanjut ke pelunasan!" : "Order selesai!")}
+                    className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    data-testid="action-finish"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    {order.payment_mode === "dp" ? "Setuju & Lanjut Pelunasan" : "Finish Order"}
                   </Button>
                   {order.revisions_used < order.revisions_allowed && (
                     <Button onClick={() => setReviseOpen(true)} variant="outline" className="rounded-full font-bold" data-testid="action-revise">
