@@ -22,6 +22,13 @@ export default function Header() {
     { href: "#kontak", label: "Kontak" },
   ];
 
+  const trackingToken = (() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem("tokoku_my_orders") || "[]");
+      return arr[0]?.token || null;
+    } catch { return null; }
+  })();
+
   return (
     <header
       data-testid="buyer-header"
@@ -53,6 +60,15 @@ export default function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          {trackingToken && (
+            <a
+              href={`/order/${trackingToken}`}
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+              data-testid="header-track-order"
+            >
+              Lacak Order
+            </a>
+          )}
           <a
             href={waLink(config.hero.whatsapp_number, "Halo, saya mau tanya soal jasa toko online.")}
             target="_blank"

@@ -1,15 +1,22 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useConfig, clearSession } from "@/lib/configStore";
+import { useConfig } from "@/lib/configStore";
+import { clearToken } from "@/lib/api";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Sparkles, ListTree, Workflow, Phone, Package,
   Calculator, CalendarClock, KeyRound, LogOut, ExternalLink, Menu, X,
-  MessageSquareQuote, HelpCircle
+  MessageSquareQuote, HelpCircle, ClipboardList
 } from "lucide-react";
 
 const MENU = [
-  { section: "Utama", items: [{ to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    section: "Utama",
+    items: [
+      { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/admin/orders", label: "Order Masuk", icon: ClipboardList },
+    ],
+  },
   {
     section: "Konten Website",
     items: [
@@ -41,7 +48,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    clearSession();
+    clearToken();
     toast.success("Berhasil logout.");
     nav("/admin/login", { replace: true });
   };

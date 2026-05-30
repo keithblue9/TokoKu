@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConfigProvider } from "@/lib/configStore";
 import { Toaster } from "@/components/ui/sonner";
 import BuyerView from "@/pages/BuyerView";
+import OrderTrackPage from "@/pages/OrderTrackPage";
 import AdminLogin from "@/pages/admin/Login";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Dashboard from "@/pages/admin/Dashboard";
@@ -15,11 +16,12 @@ import DomainEdit from "@/pages/admin/DomainEdit";
 import PasswordChange from "@/pages/admin/PasswordChange";
 import TestimonialsEdit from "@/pages/admin/TestimonialsEdit";
 import FAQEdit from "@/pages/admin/FAQEdit";
-import { getSession } from "@/lib/configStore";
+import AdminOrders from "@/pages/admin/Orders";
+import AdminOrderDetail from "@/pages/admin/OrderDetail";
+import { getToken } from "@/lib/api";
 
 function RequireAuth({ children }) {
-  const session = getSession();
-  if (!session) return <Navigate to="/admin/login" replace />;
+  if (!getToken()) return <Navigate to="/admin/login" replace />;
   return children;
 }
 
@@ -29,6 +31,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<BuyerView />} />
+          <Route path="/order/:token" element={<OrderTrackPage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route
@@ -40,6 +43,8 @@ export default function App() {
             }
           >
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="orders/:code" element={<AdminOrderDetail />} />
             <Route path="hero" element={<HeroEdit />} />
             <Route path="keunggulan" element={<KeunggulanEdit />} />
             <Route path="cara-kerja" element={<CaraKerjaEdit />} />

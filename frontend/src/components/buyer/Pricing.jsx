@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useConfig, computePackagePrices, formatRupiah, waLink } from "@/lib/configStore";
-import { Check, X, MessageCircle, Sparkles, AlertTriangle } from "lucide-react";
+import { useConfig, computePackagePrices, formatRupiah } from "@/lib/configStore";
+import { Check, X, MessageCircle, Sparkles, AlertTriangle, ShoppingBag } from "lucide-react";
+import OrderDialog from "./OrderDialog";
 
 const DURATIONS = [
   { id: "monthly", label: "Per Bulan" },
@@ -8,8 +9,7 @@ const DURATIONS = [
   { id: "twoYear", label: "Per 2 Tahun" },
 ];
 
-function PackageCard({ pkg, duration }) {
-  const { config } = useConfig();
+function PackageCard({ pkg, duration, onOrder, whatsappNumber }) {
   const prices = computePackagePrices(pkg);
 
   const durationPrice = {
@@ -85,29 +85,46 @@ function PackageCard({ pkg, duration }) {
         </div>
       )}
 
-      <a
-        href={waLink(config.hero.whatsapp_number, pkg.wa_message)}
-        target="_blank"
-        rel="noreferrer"
-        className={`inline-flex items-center justify-center gap-2 w-full rounded-full py-3.5 font-bold text-sm transition active:scale-95 ${
-          pkg.featured
-            ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30"
-            : "bg-slate-900 hover:bg-slate-700 text-white"
-        }`}
-        data-testid={`pricing-cta-${pkg.id}`}
-      >
-        <MessageCircle className="w-4 h-4" />
-        {pkg.cta_text || "Pilih Paket Ini"}
-      </a>
+      <div className="space-y-2">
+        <button
+          onClick={() => onOrder(pkg.id)}
+          className={`inline-flex items-center justify-center gap-2 w-full rounded-full py-3.5 font-bold text-sm transition active:scale-95 ${
+            pkg.featured
+              ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30"
+              : "bg-slate-900 hover:bg-slate-700 text-white"
+          }`}
+          data-testid={`pricing-cta-${pkg.id}`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          {pkg.cta_text || "Pilih Paket Ini"}
+        </button>
+        <a
+          href={`https://wa.me/${(whatsappNumber || "").replace(/\D/g, "")}?text=${encodeURIComponent(pkg.wa_message || `Halo, saya mau tanya soal paket ${pkg.name}.`)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center gap-2 w-full rounded-full py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+          data-testid={`pricing-wa-${pkg.id}`}
+        >
+          <MessageCircle className="w-3.5 h-3.5" /> Tanya dulu via WhatsApp
+        </a>
+      </div>
     </div>
   );
 }
 
+// (helper removed - whatsappNumber is passed as prop)
+
 export default function Pricing() {
   const { config } = useConfig();
   const [duration, setDuration] = useState("yearly");
+  const [openOrder, setOpenOrder] = useState(false);
+  const [orderPkgId, setOrderPkgId] = useState(null);
 
-  // Compute save labels for tabs (max of all packages)
+  const handleOrder = (pkgId) => {
+    setOrderPkgId(pkgId);
+    setOpenOrder(true);
+  };
+
   const allSavings = (config.packages || []).map((p) => computePackagePrices(p));
   const yearlySave = Math.max(0, ...allSavings.map((s) => s.yearlySavingsPct));
   const twoYearSave = Math.max(0, ...allSavings.map((s) => s.twoYearSavingsPct));
@@ -127,7 +144,6 @@ export default function Pricing() {
           </p>
         </div>
 
-        {/* Duration switcher */}
         <div className="flex justify-center mb-12 reveal">
           <div className="inline-flex bg-slate-100 rounded-full p-1.5" role="tablist" data-testid="pricing-duration-switcher">
             {DURATIONS.map((d) => (
@@ -160,11 +176,13 @@ export default function Pricing() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {config.packages.map((pkg) => (
             <div key={pkg.id} className="reveal">
-              <PackageCard pkg={pkg} duration={duration} />
+              <PackageCard pkg={pkg} duration={duration} onOrder={handleOrder} whatsappNumber={config.hero.whatsapp_number} />
             </div>
           ))}
         </div>
       </div>
+
+      <OrderDialog open={openOrder} onOpenChange={setOpenOrder} packageId={orderPkgId} duration={duration} />
     </section>
   );
 }

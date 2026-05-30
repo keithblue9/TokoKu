@@ -5,40 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { loadCredentials, createSession, getSession } from "@/lib/configStore";
+import { api, setToken, getToken } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function AdminLogin() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("admin@website.id");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (getSession()) nav("/admin/dashboard", { replace: true });
-    // Ensure default credentials are seeded
-    loadCredentials();
+    if (getToken()) {
+      // Check if existing token still valid
+      api.me().then(() => nav("/admin/dashboard", { replace: true })).catch(() => setToken(""));
+    }
   }, [nav]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const creds = loadCredentials();
-    if (email.trim().toLowerCase() !== creds.email.toLowerCase()) {
-      setError("Email tidak terdaftar.");
+    try {
+      const res = await api.login(email.trim(), pin);
+      setToken(res.token);
+      toast.success("Berhasil login! Selamat datang kembali.");
+      setTimeout(() => nav("/admin/dashboard", { replace: true }), 200);
+    } catch (e) {
+      setError(e.message || "Gagal login.");
+    } finally {
       setLoading(false);
-      return;
     }
-    if (pin !== creds.pin) {
-      setError("PIN salah. Coba lagi.");
-      setLoading(false);
-      return;
-    }
-    createSession(creds.email);
-    toast.success("Berhasil login! Selamat datang kembali.");
-    setTimeout(() => nav("/admin/dashboard", { replace: true }), 300);
   };
 
   return (

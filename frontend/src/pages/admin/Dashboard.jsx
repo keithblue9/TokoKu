@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useConfig, isWhatsappConfigured } from "@/lib/configStore";
+import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ExternalLink, Sparkles, Package, Calculator, AlertTriangle } from "lucide-react";
+import { ExternalLink, Sparkles, Package, Calculator, AlertTriangle, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 
 function PageTitle({ title, subtitle }) {
@@ -16,6 +18,20 @@ function PageTitle({ title, subtitle }) {
 
 export default function Dashboard() {
   const { config, updateSection, setSection } = useConfig();
+  const [orderStats, setOrderStats] = useState({ total: 0, actionable: 0, completed: 0 });
+
+  useEffect(() => {
+    let alive = true;
+    api.listOrders().then((list) => {
+      if (!alive) return;
+      const actionable = list.filter((o) =>
+        ["pending_review", "negotiating", "revision_requested"].includes(o.status)
+      ).length;
+      const completed = list.filter((o) => o.status === "completed").length;
+      setOrderStats({ total: list.length, actionable, completed });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const lastUpdate = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
   const activePackages = config.packages.length;
@@ -27,8 +43,8 @@ export default function Dashboard() {
   };
 
   const quick = [
-    { to: "/admin/hero", label: "Edit Hero", icon: Sparkles, color: "indigo" },
-    { to: "/admin/paket", label: "Atur Paket", icon: Package, color: "amber" },
+    { to: "/admin/orders", label: "Order Masuk", icon: ClipboardList, color: "indigo" },
+    { to: "/admin/hero", label: "Edit Hero", icon: Sparkles, color: "amber" },
     { to: "/admin/harga", label: "Kalkulator Harga", icon: Calculator, color: "emerald" },
   ];
 
@@ -49,14 +65,25 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+        <Link to="/admin/orders" className="block">
+          <Card className={`p-5 rounded-2xl border-slate-200 hover:shadow-lg hover:-translate-y-0.5 transition ${orderStats.actionable > 0 ? "ring-2 ring-amber-300 bg-amber-50/40" : ""}`} data-testid="stat-orders">
+            <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Order Aktif</div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl font-extrabold font-display text-slate-900">{orderStats.total}</span>
+              {orderStats.actionable > 0 && (
+                <span className="text-xs font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">{orderStats.actionable} perlu tindakan</span>
+              )}
+            </div>
+          </Card>
+        </Link>
         <Card className="p-5 rounded-2xl border-slate-200" data-testid="stat-packages">
           <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Paket Aktif</div>
           <div className="text-3xl font-extrabold font-display text-slate-900 mt-1">{activePackages}</div>
         </Card>
         <Card className="p-5 rounded-2xl border-slate-200" data-testid="stat-why">
-          <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Kartu Keunggulan</div>
-          <div className="text-3xl font-extrabold font-display text-slate-900 mt-1">{activeWhy}/6</div>
+          <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Order Selesai</div>
+          <div className="text-3xl font-extrabold font-display text-slate-900 mt-1">{orderStats.completed}</div>
         </Card>
         <Card className="p-5 rounded-2xl border-slate-200" data-testid="stat-status">
           <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Status</div>

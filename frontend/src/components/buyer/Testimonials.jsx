@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { useConfig } from "@/lib/configStore";
+import { api } from "@/lib/api";
 import { Star, Quote } from "lucide-react";
 
 function Avatar({ name, photo }) {
@@ -16,7 +18,19 @@ function Avatar({ name, photo }) {
 export default function Testimonials() {
   const { config } = useConfig();
   const t = config.testimonials;
-  if (!t || !t.items?.length) return null;
+  const [liveReviews, setLiveReviews] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    api.publicReviews()
+      .then((r) => { if (alive) setLiveReviews(r || []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // Merge live reviews from completed orders with seeded items
+  const combined = [...liveReviews, ...(t?.items || [])];
+  if (!combined.length) return null;
 
   return (
     <section id="testimoni" className="py-20 sm:py-28 bg-slate-50" data-testid="testimonials-section">
@@ -26,13 +40,13 @@ export default function Testimonials() {
             Testimoni
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold font-display tracking-tighter text-slate-900 leading-tight">
-            {t.title}
+            {t?.title || "Apa Kata Mereka"}
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-slate-600">{t.subtitle}</p>
+          <p className="mt-4 text-base sm:text-lg text-slate-600">{t?.subtitle || "Kisah nyata UMKM yang udah punya toko online sendiri."}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {t.items.map((item) => (
+          {combined.map((item) => (
             <div
               key={item.id}
               data-testid={`testimonial-card-${item.id}`}

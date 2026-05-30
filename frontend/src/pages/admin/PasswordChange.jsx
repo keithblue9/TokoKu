@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { loadCredentials, saveCredentials } from "@/lib/configStore";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { AlertCircle, KeyRound } from "lucide-react";
 
@@ -12,26 +12,23 @@ export default function PasswordChange() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const creds = loadCredentials();
-    if (oldPin !== creds.pin) {
-      setError("PIN lama salah.");
-      return;
+    if (!/^\d{6}$/.test(newPin)) return setError("PIN baru harus 6 digit angka.");
+    if (newPin !== confirmPin) return setError("Konfirmasi PIN tidak cocok.");
+    setLoading(true);
+    try {
+      await api.changePin(oldPin, newPin);
+      toast.success("PIN berhasil diubah!");
+      setOldPin(""); setNewPin(""); setConfirmPin("");
+    } catch (e) {
+      setError(e.message || "Gagal mengubah PIN.");
+    } finally {
+      setLoading(false);
     }
-    if (!/^\d{6}$/.test(newPin)) {
-      setError("PIN baru harus 6 digit angka.");
-      return;
-    }
-    if (newPin !== confirmPin) {
-      setError("Konfirmasi PIN tidak cocok.");
-      return;
-    }
-    saveCredentials({ ...creds, pin: newPin });
-    toast.success("PIN berhasil diubah!");
-    setOldPin(""); setNewPin(""); setConfirmPin("");
   };
 
   const PinField = ({ label, value, onChange, testid, slotPrefix }) => (
@@ -76,11 +73,11 @@ export default function PasswordChange() {
 
           <Button
             type="submit"
-            disabled={oldPin.length < 6 || newPin.length < 6 || confirmPin.length < 6}
+            disabled={loading || oldPin.length < 6 || newPin.length < 6 || confirmPin.length < 6}
             className="w-full rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
             data-testid="pwd-submit"
           >
-            Simpan PIN Baru
+            {loading ? "Menyimpan..." : "Simpan PIN Baru"}
           </Button>
         </form>
       </Card>
