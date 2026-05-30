@@ -1,0 +1,33 @@
+{
+  "summary": "End-to-end frontend testing of TokoKu — a localStorage-only Bahasa Indonesia marketing site for UMKM with admin dashboard. Buyer view (/), all admin routes, login/logout, protected route gate, status maintenance toggle, hero edit reflection, pricing duration switcher, pricing calculator (real-time formula), all editor pages presence, and mobile layout were tested. The app works end-to-end. Only minor cosmetic/data-quality issues found — no functional blockers.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "WhyOwnStore carousel", "issue": "Each card data-testid (e.g. why-card-w1..w6) is rendered TWICE in the DOM (12 elements total) because the carousel duplicates slides for infinite-scroll. Functionally fine but breaks the 'unique selector' contract expected by data-testid (Playwright .first works, but tests that expect count=6 will see 12).", "selector": "[data-testid^=\"why-card-\"]", "priority": "LOW"},
+      {"component": "PasswordChange (/admin/password)", "issue": "The 3 OTP inputs (old PIN, new PIN, confirm new PIN) do NOT have individual data-testid attributes on their slots (no pwd-pin-* testids exist). Automating PIN change requires typing into the hidden InputOTP input by index. Functionally works, but inconsistent with the rest of the app (Login uses login-pin-slot-0..5).", "selector": "n/a", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Footer / Hero WhatsApp links", "issues": ["Default seed whatsapp_number is the placeholder '628XXXXXXXXXX'. The Pricing/Hero WA links strip non-digits, producing the invalid URL 'https://wa.me/628?text=...'. Owner must set a real WhatsApp number before going live, otherwise the primary conversion CTA links to an invalid wa.me/628. Same applies to footer phone '08XXXXXXXXXX'. Recommend either (a) seed with an obviously fake-but-valid 10-digit number like 6281234567890 plus a banner reminding admin to change it, or (b) disable WA CTAs (or show 'Belum dikonfigurasi') when number contains non-digits."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Replace the default seed whatsapp_number '628XXXXXXXXXX' (and phone '08XXXXXXXXXX') with a sensible numeric default or guard the wa.me link / phone tel: against non-numeric placeholders.",
+    "(Optional) Make WhyOwnStore carousel-duplicated slides use unique data-testids (e.g. suffix `-clone`) so automated counts are deterministic.",
+    "(Optional) Add data-testid attributes to PasswordChange InputOTP slots (e.g. pwd-pin-old-slot-0..5, pwd-pin-new-slot-0..5, pwd-pin-confirm-slot-0..5) for consistency with Login."
+  ],
+  "critical_code_review_comments": [
+    "PaketEdit and KeunggulanEdit use accordion-style collapse where only the first card / expanded card has its inner data-testids mounted. This is fine by design (request explicitly mentions expanding cards first), but be aware that automated tests must call why-toggle-* / package accordion header before pkg-featured-growth / why-active-* selectors are reachable.",
+    "InputOTP component (login) is a controlled component; testing wrong-PIN then correct-PIN in the same page session requires a full reload because programmatic value clearing doesn't trigger the internal state reset — confirmed working in production via natural backspace, just a testing-agent gotcha.",
+    "App.js imports getSession from configStore for RequireAuth but the getSession call runs at render time on every navigation — OK for localStorage but if migrated to backend later, will need to become async/lazy."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (no backend)", "frontend": "95%" },
+  "test_credentials": "admin@website.id / 503625 — unchanged after test run",
+  "seed_data_creation": "None. After hero-edit reflection test, the headline was restored to the default. Status toggle was reverted to 'online'. PIN was NOT changed (no destructive PIN-change test executed because the InputOTP slots on /admin/password have no data-testids and stable scripted typing is fragile; flow visually inspected via 3 OTP inputs present).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All buyer view sections (hero, 6 why-cards, 3 pricing cards with Growth featured badge, duration switcher with -15%/-25% labels, domain renewal with highlighted yearly, footer with year/WA/email/phone/admin-link) render correctly. Admin login flow works (correct & wrong PIN). Protected route gate works (redirects to /admin/login when no session, and after logout). All 8 sidebar links navigate to their routes. Hero edit, Status maintenance toggle, Pricing calculator real-time formula (modal=1M, margin=50% → Rp 2.000.000 = correct: 1M/(1-0.5)) all work. PaketEdit and KeunggulanEdit use accordion — only the open accordion has its inner data-testids mounted. PasswordChange has 3 OTP inputs without slot-level data-testids. WhyOwnStore carousel duplicates slides causing 12 total why-card-* elements (6 unique). Default seed whatsapp_number is the placeholder '628XXXXXXXXXX' which produces wa.me/628 (invalid).",
+  "rca of the issue": "Not applicable — no critical bugs. WA link issue RCA: Hero.jsx / Pricing.jsx / Footer.jsx use the whatsapp_number from defaultConfig directly, sanitized via .replace(/\\D/g,'') for the wa.me path. Since the seeded number 628XXXXXXXXXX contains 10 'X' placeholders, sanitization leaves only '628', producing https://wa.me/628 — a malformed WhatsApp link. Mitigation: either seed with valid number or add validation/guard that disables the CTA when sanitized number length < 10."
+}
