@@ -69,10 +69,10 @@ export default function Dashboard() {
         <Link to="/admin/orders" className="block">
           <Card className={`p-5 rounded-2xl border-slate-200 hover:shadow-lg hover:-translate-y-0.5 transition ${orderStats.actionable > 0 ? "ring-2 ring-amber-300 bg-amber-50/40" : ""}`} data-testid="stat-orders">
             <div className="text-xs text-slate-500 font-semibold uppercase tracking-widest">Order Aktif</div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-extrabold font-display text-slate-900">{orderStats.total}</span>
+            <div className="flex flex-col gap-2 mt-1">
+              <span className="text-3xl font-extrabold font-display text-slate-900 leading-none">{orderStats.total}</span>
               {orderStats.actionable > 0 && (
-                <span className="text-xs font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">{orderStats.actionable} perlu tindakan</span>
+                <span className="self-start text-[10px] font-bold bg-amber-500 text-white px-2 py-1 rounded-full uppercase tracking-wider">{orderStats.actionable} perlu tindakan</span>
               )}
             </div>
           </Card>

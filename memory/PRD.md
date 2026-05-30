@@ -1,67 +1,61 @@
 # TokoKu — Website Jasa Pembuatan Toko Online untuk UMKM
 
 ## Problem Statement (Original)
-Build a marketing website (not e-commerce store) that sells online store creation services for Indonesian UMKM/SME entrepreneurs. Two interfaces:
-1. **Buyer View** — public single-page landing
-2. **Seller View / Admin Dashboard** — protected panel that lets the service owner edit every piece of content & pricing shown to buyers
+Marketing website + admin CMS yang menjual jasa pembuatan toko online untuk UMKM Indonesia. Iterasi terbaru menambah **alur Order end-to-end** lengkap dengan negosiasi durasi, timer pengerjaan, revisi terbatas per paket, dan review otomatis.
 
-Target market: Indonesian UMKM millennials (25–40), digitally literate, run food/fashion/craft/local services, want to sell online seriously without technical hassle.
-
-## Architecture (MVP — 30 May 2026)
-- **Stack**: React 19 (CRA + craco) + TailwindCSS + Shadcn UI + framer-motion + lucide-react.
-- **Persistence**: localStorage only (per user choice).
-- **Auth**: JWT-style session in localStorage. Login = email + 6-digit PIN via Shadcn `InputOTP`.
-- **Default credentials**: `admin@website.id` / PIN `503625` — changeable via `/admin/password`.
-- **Routing**: `/` (buyer view), `/admin/login`, and protected `/admin/*` routes.
+## Architecture
+- **Frontend**: React 19 (CRA + craco) + TailwindCSS + Shadcn UI + lucide-react.
+- **Backend**: FastAPI + Motor (MongoDB).
+- **Persistence**: Konten website (hero, paket, dll) di **localStorage**. **Orders + admin auth** di **MongoDB** (cross-device sync via polling 8–12 detik).
+- **Auth**: JWT (HS256, 7-day) via `POST /api/auth/login` (email + 6-digit PIN), token disimpan di `localStorage[tokoku_admin_token_v1]`. Bcrypt-hashed PIN di MongoDB. Admin di-seed otomatis dari env `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PIN` saat startup.
 
 ## User Personas
-- **Pemilik UMKM (Buyer)**: Mobile-first, scans landing page, evaluates 3 packages, taps WhatsApp CTA to chat.
-- **Pemilik Jasa (Admin/Seller)**: Logs into dashboard from desktop/HP, edits content + pricing, immediately previews on buyer view.
+- **Buyer (Pemilik UMKM)**: submit order via dialog di pricing → dapat tracking link unik `/order/<token>` → polling status, accept/nego, terima delivery, minta revisi, review akhir.
+- **Seller (Pemilik Jasa)**: login admin → kelola Order Masuk dengan workflow propose duration → accept/reject negosiasi → start work (timer) → deliver URL → resolve revisi → toggle visibility review.
 
-## Core Requirements (Static)
-- Buyer view sections: Hero, Why-Own-Store (6 cards, unskippable auto-marquee), Pricing (3 packages + duration switcher), How It Works, Domain Renewal, Footer.
-- Admin panel sections: Dashboard, Hero, Keunggulan, Cara Kerja, Footer & Kontak, Pengaturan Paket, Kalkulator Harga, Opsi Perpanjang Domain, Ganti PIN.
-- Mobile-first design at 375px viewport.
-- WhatsApp CTA in ≥3 places: hero, each pricing card, footer.
-- Pricing formula: `harga_jual = modal / (1 - margin%)`.
+## Order State Machine
+`pending_review → awaiting_buyer → (negotiating ↔) in_progress → delivered → (revision_requested → delivered) → completed` (+ branch `rejected`).
+
+**Revisi per paket**: Basic 0x · Growth 1x · Pro 2x.
 
 ## Implementation Status
 
 ### Done (30 May 2026)
-- [x] Buyer view with all 6 sections + animated blob hero + scroll-reveal sections
-- [x] Why-Own-Store auto-scrolling marquee carousel (6 cards, hover-to-pause)
-- [x] Pricing with monthly/yearly/2-year switcher + auto-computed savings %
-- [x] Domain renewal section reading from featured package
-- [x] Admin login with Shadcn InputOTP (6-digit PIN)
-- [x] Protected route gate + 7-day localStorage session
-- [x] Admin sidebar layout (responsive, with mobile drawer)
-- [x] All 9 admin edit pages with real-time previews and toast feedback
-- [x] Pricing calculator with real-time formula + override fields
-- [x] Drag-style reorder for "Cara Kerja" steps
-- [x] Icon picker for "Keunggulan" cards
-- [x] Site maintenance toggle (`status` flag)
-- [x] WA number placeholder guard + admin dashboard warning banner
-- [x] All interactive elements tagged with `data-testid`
-- [x] Frontend testing agent run: 95% pass, no critical bugs
 
-### Verified by Testing Agent (iteration 1)
-- All buyer view sections render correctly at 1920px & 375px
-- Login (correct + wrong PIN), protected route redirect, logout all working
-- Hero edit reflects on buyer view; calculator real-time math correct
-- Maintenance mode page renders when status toggled off
-- All 8 sidebar nav links work
+**Iterasi 1 (MVP konten):**
+- [x] Buyer view: hero, why-own-store carousel (6 kartu, marquee), pricing (3 paket + duration switcher), how-it-works, domain renewal, footer
+- [x] Admin CMS: 9 halaman edit (hero/keunggulan/cara-kerja/footer/paket/harga/domain/PIN), pricing calculator real-time, maintenance toggle
 
-## Prioritized Backlog
+**Iterasi 2 (Testimoni & FAQ):**
+- [x] Buyer: section Testimoni (3 kartu default) + FAQ accordion (6 pertanyaan)
+- [x] Admin: Testimoni edit (upload foto + rating), FAQ edit (add/edit/reorder/delete)
+- [x] Watermark "Made with Emergent" dihapus
 
-### P1 (next iteration)
-- [ ] Replace placeholder WhatsApp number `628XXXXXXXXXX` with the seller's real number (admin task, not code)
-- [ ] Replace placeholder phone `08XXXXXXXXXX` and brand "TokoKu" with real values
-- [ ] Add SEO meta editor (title/description) — currently uses defaults from config.meta but no UI yet
-- [ ] Drag-and-drop (dnd-kit) for steps and feature lists (currently arrow buttons)
+**Iterasi 3 (Order Workflow — current):**
+- [x] Backend FastAPI dengan 16 endpoint: 3 auth + 11 order + 1 public reviews + 1 health
+- [x] JWT bearer auth + bcrypt PIN hashing + admin seed on startup
+- [x] MongoDB models: `admins`, `orders` (dengan code unik `ORD-XXXXXX` + tracking_token URL-safe)
+- [x] Frontend buyer: OrderDialog (form lengkap dengan validasi + estimasi biaya), localStorage cache of own orders, tracking page dengan timer countdown live, dialog negosiasi/revisi/review, chat box, polling 8s
+- [x] Frontend seller: Orders list (poll 12s, search, status badge), OrderDetail dengan action card kontekstual per status, delivery history, revision history, review card dengan toggle visibility, chat seller
+- [x] Public testimoni section otomatis menampilkan review dari order completed (dengan filter visibility)
+- [x] Sidebar admin menambah menu "Order Masuk" + Dashboard stat card menampilkan order aktif & perlu tindakan
+- [x] Header buyer menampilkan link "Lacak Order" otomatis kalau ada order tersimpan di localStorage
 
-### P2 (polish & extras)
-- [ ] Export / Import config as JSON file (so admin can back up localStorage data)
-- [ ] Per-package override of yearly/2-year price in calculator UI (data field exists; UI is present but minimal)
-- [ ] Multi-admin support (currently single credential pair)
-- [ ] Analytics / view counter for buyer view
-- [ ] Migrate to MongoDB backend for multi-device sync
+### Verified by Testing (iteration 2)
+- Backend: 21/21 pytest pass (auth + workflow + revisions + reviews visibility)
+- Frontend: 100% critical flow (order create → login → propose → accept → in_progress timer → chat → cross-context polling)
+
+## Backlog
+
+### P1
+- [ ] WA notification otomatis (Twilio/Fonnte) untuk push notif ke buyer/seller — saat ini click-to-send wa.me link
+- [ ] Rate limiting di `/api/auth/login` dan `/api/orders` (slowapi)
+- [ ] Export order list CSV / PDF invoice generator
+
+### P2
+- [ ] Refresh token + token rotation (saat ini single 7-day access token)
+- [ ] Refactor `server.py` → routers terpisah (`routers/auth.py`, `routers/orders.py`, `services/state_machine.py`)
+- [ ] State machine declarative table dengan decorator validasi transisi
+- [ ] Drag-and-drop dnd-kit untuk reorder steps/FAQ
+- [ ] Multi-admin (collaborator) + role-based access
+- [ ] Dashboard analytics (orders per status, revenue chart, conversion funnel)
