@@ -60,6 +60,7 @@ def _create_order(session, package_id="growth", package_name="Growth"):
         "package_setup_price": 100000,
         "package_domain_price": 100000,
         "payment_mode": "full",
+        "agreed_to_terms": True,
     }
     r = session.post(f"{API}/orders", json=payload)
     assert r.status_code == 200, r.text
@@ -210,7 +211,7 @@ class TestHappyPath:
         body = r.json()
         assert body["status"] == "delivered"
         assert len(body["delivery_history"]) == 1
-        assert body["delivery_history"][0]["is_revision"] is False
+        assert body["delivery_history"][0]["is_revision"] == False
 
         # Buyer finish
         r = session.post(f"{API}/orders/track/{token}/finish")
@@ -225,7 +226,7 @@ class TestHappyPath:
         body = r.json()
         assert body["review_rating"] == 5
         assert body["review_message"] == "Great work!"
-        assert body["review_visible"] is True
+        assert body["review_visible"] == True
 
         # Public reviews include this
         r = session.get(f"{API}/reviews")

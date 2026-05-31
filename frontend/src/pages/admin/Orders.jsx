@@ -25,7 +25,8 @@ export default function AdminOrders() {
       const list = await api.listOrders();
       setOrders(list || []);
     } catch (e) {
-      // ignore — sidebar logout handles 401
+      // 401 is expected when session expired — RequireAuth + sidebar logout handles it.
+      if (e?.status !== 401) console.warn("Failed to load orders:", e?.message);
     } finally {
       setLoading(false);
     }

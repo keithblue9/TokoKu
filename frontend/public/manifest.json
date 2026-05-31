@@ -1,0 +1,19 @@
+{
+  "short_name": "TokoKu",
+  "name": "TokoKu — Jasa Toko Online UMKM",
+  "icons": [
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#6366F1",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "description": "Punya tokomu sendiri. Bukan numpang di marketplace orang lain.",
+  "shortcuts": [
+    { "name": "Lacak Order", "short_name": "Order", "url": "/", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Admin Dashboard", "short_name": "Admin", "url": "/admin/dashboard", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -74,11 +74,46 @@ async def require_admin(authorization: Optional[str] = Header(default=None)) -> 
         admin = await db.admins.find_one({"email": payload["sub"]})
         if not admin:
             raise HTTPException(status_code=401, detail="Admin tidak ditemukan.")
-        return {"email": admin["email"]}
+        if admin.get("active") is False:
+            raise HTTPException(status_code=403, detail="Akun kamu telah dinonaktifkan oleh owner.")
+        return {
+            "email": admin["email"],
+            "name": admin.get("name", admin["email"]),
+            "role": admin.get("role", "owner"),
+        }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Sesi habis. Silakan login ulang.")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token tidak valid.")
+
+
+async def require_owner(admin: dict = Depends(lambda: None)) -> dict:
+    # Wrap require_admin then ensure role == owner
+    raise RuntimeError("use require_owner_dep instead")  # placeholder, not used
+
+
+async def require_owner_dep(authorization: Optional[str] = Header(default=None)) -> dict:
+    admin = await require_admin(authorization)
+    if admin.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Hanya pemilik akun (owner) yang bisa mengakses fitur ini.")
+    return admin
+
+
+async def log_action(admin: dict, action: str, target_type: str = "", target_id: str = "", details: str = ""):
+    """Append an audit log entry. Failure is logged but never blocks the request."""
+    try:
+        await db.audit_log.insert_one({
+            "at": now_iso(),
+            "admin_email": admin.get("email"),
+            "admin_name": admin.get("name"),
+            "admin_role": admin.get("role"),
+            "action": action,
+            "target_type": target_type,
+            "target_id": target_id,
+            "details": details,
+        })
+    except Exception as exc:
+        logger.warning("Failed to write audit log: %s", exc)
 
 
 # ---------------- Auth schemas ----------------
@@ -95,6 +130,30 @@ class ChangePinPayload(BaseModel):
 class LoginResponse(BaseModel):
     token: str
     email: str
+    name: str = ""
+    role: str = "owner"
+
+
+class TeamMemberCreate(BaseModel):
+    email: EmailStr
+    pin: str = Field(min_length=6, max_length=6)
+    name: str = Field(min_length=2, max_length=100)
+    role: Literal["owner", "staff"] = "staff"
+
+
+class TeamMemberUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[Literal["owner", "staff"]] = None
+    active: Optional[bool] = None
+    reset_pin: Optional[str] = None  # if provided, sets new PIN
+
+
+class TermsPayload(BaseModel):
+    content: str = Field(min_length=10)
+
+
+class OrderVisitsPayload(BaseModel):
+    monthly_visits: int = Field(ge=0)
 
 
 # ---------------- Auth endpoints ----------------
@@ -104,7 +163,11 @@ async def login(payload: LoginPayload):
     admin = await db.admins.find_one({"email": email})
     if not admin or not verify_pin(payload.pin, admin["pin_hash"]):
         raise HTTPException(status_code=401, detail="Email atau PIN salah.")
-    return LoginResponse(token=create_access_token(email), email=email)
+    if admin.get("active") is False:
+        raise HTTPException(status_code=403, detail="Akun kamu telah dinonaktifkan.")
+    role = admin.get("role", "owner")
+    name = admin.get("name", email)
+    return LoginResponse(token=create_access_token(email), email=email, name=name, role=role)
 
 
 @api.post("/auth/change-pin")
@@ -167,6 +230,7 @@ class CreateOrderPayload(BaseModel):
     package_setup_price: int = 0
     package_domain_price: int = 0
     payment_mode: Literal["dp", "full"] = "dp"
+    agreed_to_terms: bool = False
 
 
 class PaymentSubmitPayload(BaseModel):
@@ -245,6 +309,8 @@ def _public_order_for_buyer(o: dict) -> dict:
 
 @api.post("/orders")
 async def create_order(payload: CreateOrderPayload):
+    if not payload.agreed_to_terms:
+        raise HTTPException(status_code=400, detail="Anda harus menyetujui syarat & ketentuan untuk membuat order.")
     pkg = payload.package_id.lower()
     revisions_allowed = PACKAGE_REVISIONS.get(pkg, 0)
     # Compute payment amounts
@@ -303,6 +369,8 @@ async def create_order(payload: CreateOrderPayload):
         "finished_at": None,
         "review_rating": None,
         "review_message": None,
+        "monthly_visits": 0,
+        "agreed_to_terms_at": now_iso(),
         "review_at": None,
         "review_visible": True,
     }
@@ -640,6 +708,39 @@ async def seller_delete(code: str, admin: dict = Depends(require_admin)):
 
 
 # ---- Seller: payment verification ----
+def _build_verify_accept_update(order: dict, payment: dict, idx: int) -> dict:
+    """Build the $set update doc for an ACCEPTED payment verification."""
+    new_amount_paid = order.get("amount_paid", 0) + payment["amount"]
+    update_set = {
+        f"payments.{idx}.status": "verified",
+        f"payments.{idx}.verified_at": now_iso(),
+        "amount_paid": new_amount_paid,
+        "updated_at": now_iso(),
+    }
+    if payment["kind"] in ("dp", "full"):
+        started = datetime.now(timezone.utc)
+        expected = started + timedelta(days=order.get("accepted_days") or 5)
+        update_set["status"] = "in_progress"
+        update_set["started_at"] = started.isoformat()
+        update_set["expected_finish_at"] = expected.isoformat()
+    elif payment["kind"] == "settlement":
+        update_set["status"] = "completed"
+        update_set["finished_at"] = now_iso()
+    return update_set
+
+
+def _build_verify_reject_update(payment: dict, idx: int, reason: str) -> dict:
+    """Build the $set update doc for a REJECTED payment verification."""
+    revert_status = "awaiting_payment" if payment["kind"] in ("dp", "full") else "awaiting_settlement"
+    return {
+        f"payments.{idx}.status": "rejected",
+        f"payments.{idx}.rejection_reason": reason.strip() or "Bukti pembayaran tidak valid.",
+        f"payments.{idx}.verified_at": now_iso(),
+        "status": revert_status,
+        "updated_at": now_iso(),
+    }
+
+
 @api.post("/admin/orders/{code}/verify-payment")
 async def seller_verify_payment(code: str, payload: PaymentVerifyPayload, admin: dict = Depends(require_admin)):
     o = await db.orders.find_one({"code": code})
@@ -656,41 +757,10 @@ async def seller_verify_payment(code: str, payload: PaymentVerifyPayload, admin:
         raise HTTPException(status_code=400, detail="Pembayaran ini sudah pernah diverifikasi.")
 
     if payload.verified:
-        # Mark payment verified
-        new_amount_paid = o.get("amount_paid", 0) + p["amount"]
-        update_set = {
-            f"payments.{idx}.status": "verified",
-            f"payments.{idx}.verified_at": now_iso(),
-            "amount_paid": new_amount_paid,
-            "updated_at": now_iso(),
-        }
-        if p["kind"] in ("dp", "full"):
-            # Move to in_progress, start timer
-            started = datetime.now(timezone.utc)
-            expected = started + timedelta(days=o.get("accepted_days") or 5)
-            update_set["status"] = "in_progress"
-            update_set["started_at"] = started.isoformat()
-            update_set["expected_finish_at"] = expected.isoformat()
-        elif p["kind"] == "settlement":
-            update_set["status"] = "completed"
-            update_set["finished_at"] = now_iso()
-        await db.orders.update_one({"code": code}, {"$set": update_set})
+        update_set = _build_verify_accept_update(o, p, idx)
     else:
-        # Reject: revert status, mark payment rejected
-        revert_status = "awaiting_payment" if p["kind"] in ("dp", "full") else "awaiting_settlement"
-        await db.orders.update_one(
-            {"code": code},
-            {
-                "$set": {
-                    f"payments.{idx}.status": "rejected",
-                    f"payments.{idx}.rejection_reason": (payload.rejection_reason or "").strip() or "Bukti pembayaran tidak valid.",
-                    f"payments.{idx}.verified_at": now_iso(),
-                    "status": revert_status,
-                    "updated_at": now_iso(),
-                }
-            },
-        )
-
+        update_set = _build_verify_reject_update(p, idx, payload.rejection_reason or "")
+    await db.orders.update_one({"code": code}, {"$set": update_set})
     return _serialize_order(await db.orders.find_one({"code": code}))
 
 
@@ -744,7 +814,261 @@ async def update_payment_settings(payload: PaymentSettingsPayload, admin: dict =
     update["key"] = "payment"
     update["updated_at"] = now_iso()
     await db.settings.update_one({"key": "payment"}, {"$set": update}, upsert=True)
+    await log_action(admin, "update_payment_settings", "settings", "payment")
     return await _get_settings()
+
+
+# ---- Terms & Conditions ----
+DEFAULT_TERMS = (
+    "SYARAT DAN KETENTUAN KERJASAMA\n\n"
+    "Dengan menyetujui ini, Anda (selanjutnya disebut 'Klien') menyatakan telah membaca dan menyetujui ketentuan kerjasama berikut:\n\n"
+    "1. LINGKUP PEKERJAAN\n"
+    "Kami menyediakan jasa pembuatan website toko online sesuai paket yang dipilih. Fitur yang termasuk telah tercantum di halaman paket dan tidak bisa ditambah di luar lingkup tanpa kesepakatan baru.\n\n"
+    "2. WAKTU PENGERJAAN\n"
+    "Durasi pengerjaan dihitung dalam hari kerja, dimulai sejak DP (atau pembayaran penuh) diterima dan diverifikasi. Hari libur nasional dan akhir pekan tidak dihitung.\n\n"
+    "3. PEMBAYARAN\n"
+    "a. Klien dapat memilih DP (sesuai persentase yang berlaku) atau pembayaran penuh di awal.\n"
+    "b. Pengerjaan baru dimulai setelah pembayaran terverifikasi.\n"
+    "c. Untuk skema DP, pelunasan wajib dilakukan sebelum status order ditandai selesai.\n"
+    "d. Pembayaran yang sudah masuk tidak dapat dikembalikan kecuali pekerjaan belum dimulai.\n\n"
+    "4. REVISI\n"
+    "Jatah revisi mengikuti paket: Basic 0×, Growth 1×, Pro 2×. Revisi di luar jatah dikenakan biaya tambahan sesuai kesepakatan.\n\n"
+    "5. ASET & KONTEN\n"
+    "Klien wajib menyediakan konten (logo, foto produk, deskripsi) dalam kualitas yang layak. Keterlambatan menyerahkan konten akan memperpanjang durasi pengerjaan.\n\n"
+    "6. DOMAIN & HOSTING\n"
+    "Domain didaftarkan atas nama Klien dan diperpanjang per periode yang dipilih. Setelah masa aktif berakhir dan tidak diperpanjang, data tetap kami simpan selama 6 bulan sebelum dihapus permanen.\n\n"
+    "7. HAK CIPTA\n"
+    "Setelah pelunasan, hak penggunaan website penuh menjadi milik Klien. Kami berhak menampilkan hasil kerja di portofolio kami kecuali Klien meminta sebaliknya secara tertulis.\n\n"
+    "8. KERAHASIAAN\n"
+    "Kedua belah pihak sepakat menjaga kerahasiaan informasi bisnis yang dipertukarkan selama kerjasama berlangsung.\n\n"
+    "9. KOMUNIKASI\n"
+    "Seluruh komunikasi resmi dilakukan melalui halaman tracking order dan WhatsApp yang terdaftar. Kesalahan informasi dari nomor lain bukan tanggung jawab kami.\n\n"
+    "Dengan mencentang 'Saya menyetujui', Klien dianggap sah menyetujui seluruh poin di atas."
+)
+
+
+@api.get("/settings/terms")
+async def get_terms_public():
+    s = await db.settings.find_one({"key": "terms"})
+    if not s:
+        return {"content": DEFAULT_TERMS}
+    return {"content": s.get("content", DEFAULT_TERMS)}
+
+
+@api.put("/admin/settings/terms")
+async def update_terms(payload: TermsPayload, admin: dict = Depends(require_owner_dep)):
+    await db.settings.update_one(
+        {"key": "terms"},
+        {"$set": {"key": "terms", "content": payload.content, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    await log_action(admin, "update_terms", "settings", "terms")
+    return {"content": payload.content}
+
+
+# ---- Team Management (owner only) ----
+def _serialize_admin(a: dict) -> dict:
+    if not a:
+        return a
+    return {
+        "email": a.get("email"),
+        "name": a.get("name", ""),
+        "role": a.get("role", "staff"),
+        "active": a.get("active", True),
+        "created_at": a.get("created_at"),
+        "updated_at": a.get("updated_at"),
+    }
+
+
+@api.get("/admin/team")
+async def list_team(admin: dict = Depends(require_owner_dep)):
+    items = []
+    async for a in db.admins.find({}).sort("created_at", 1):
+        items.append(_serialize_admin(a))
+    return items
+
+
+@api.post("/admin/team")
+async def add_team_member(payload: TeamMemberCreate, admin: dict = Depends(require_owner_dep)):
+    if not re.fullmatch(r"\d{6}", payload.pin):
+        raise HTTPException(status_code=400, detail="PIN harus 6 digit angka.")
+    email = payload.email.lower().strip()
+    if await db.admins.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email sudah terdaftar.")
+    doc = {
+        "email": email,
+        "name": payload.name.strip(),
+        "role": payload.role,
+        "active": True,
+        "pin_hash": hash_pin(payload.pin),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    await db.admins.insert_one(doc)
+    await log_action(admin, "team_add", "admin", email, f"role={payload.role}")
+    return _serialize_admin(doc)
+
+
+@api.put("/admin/team/{email}")
+async def update_team_member(email: str, payload: TeamMemberUpdate, admin: dict = Depends(require_owner_dep)):
+    email = email.lower().strip()
+    target = await db.admins.find_one({"email": email})
+    if not target:
+        raise HTTPException(status_code=404, detail="Anggota tim tidak ditemukan.")
+    update = {}
+    if payload.name is not None:
+        update["name"] = payload.name.strip()
+    if payload.role is not None:
+        # Prevent demoting the only owner
+        if target.get("role") == "owner" and payload.role != "owner":
+            count_owners = await db.admins.count_documents({"role": "owner", "active": True})
+            if count_owners <= 1:
+                raise HTTPException(status_code=400, detail="Tidak bisa menurunkan owner terakhir.")
+        update["role"] = payload.role
+    if payload.active is not None:
+        if target["email"] == admin["email"] and not payload.active:
+            raise HTTPException(status_code=400, detail="Tidak bisa menonaktifkan akun sendiri.")
+        update["active"] = payload.active
+    if payload.reset_pin:
+        if not re.fullmatch(r"\d{6}", payload.reset_pin):
+            raise HTTPException(status_code=400, detail="PIN harus 6 digit angka.")
+        update["pin_hash"] = hash_pin(payload.reset_pin)
+    if not update:
+        raise HTTPException(status_code=400, detail="Tidak ada perubahan.")
+    update["updated_at"] = now_iso()
+    await db.admins.update_one({"email": email}, {"$set": update})
+    await log_action(admin, "team_update", "admin", email, ", ".join(k for k in update if k != "updated_at"))
+    return _serialize_admin(await db.admins.find_one({"email": email}))
+
+
+@api.delete("/admin/team/{email}")
+async def delete_team_member(email: str, admin: dict = Depends(require_owner_dep)):
+    email = email.lower().strip()
+    if email == admin["email"]:
+        raise HTTPException(status_code=400, detail="Tidak bisa hapus akun sendiri.")
+    target = await db.admins.find_one({"email": email})
+    if not target:
+        raise HTTPException(status_code=404, detail="Anggota tim tidak ditemukan.")
+    if target.get("role") == "owner":
+        count_owners = await db.admins.count_documents({"role": "owner"})
+        if count_owners <= 1:
+            raise HTTPException(status_code=400, detail="Tidak bisa menghapus owner terakhir.")
+    await db.admins.delete_one({"email": email})
+    await log_action(admin, "team_delete", "admin", email)
+    return {"ok": True}
+
+
+# ---- Activity / Audit log (owner only) ----
+@api.get("/admin/activity")
+async def list_activity(limit: int = 200, admin: dict = Depends(require_owner_dep)):
+    cursor = db.audit_log.find({}).sort("at", -1).limit(min(limit, 500))
+    items = []
+    async for entry in cursor:
+        entry.pop("_id", None)
+        items.append(entry)
+    return items
+
+
+# ---- Order: update monthly visits (analytics) ----
+@api.put("/admin/orders/{code}/visits")
+async def update_order_visits(code: str, payload: OrderVisitsPayload, admin: dict = Depends(require_admin)):
+    res = await db.orders.update_one(
+        {"code": code},
+        {"$set": {"monthly_visits": payload.monthly_visits, "updated_at": now_iso()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order tidak ditemukan.")
+    await log_action(admin, "update_visits", "order", code, f"visits={payload.monthly_visits}")
+    return _serialize_order(await db.orders.find_one({"code": code}))
+
+
+# ---- Smart analytics for seller dashboard ----
+def _months_for_duration(duration: str) -> int:
+    return {"monthly": 1, "yearly": 12, "twoYear": 24}.get(duration, 12)
+
+
+@api.get("/admin/analytics/dashboard")
+async def analytics_dashboard(reminder_days: int = 30, admin: dict = Depends(require_admin)):
+    now = datetime.now(timezone.utc)
+
+    expiring = []
+    top_traffic = []
+    package_counts = {}
+    revenue_total = 0
+    revenue_month = 0
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    async for o in db.orders.find({}):
+        # Domain expiry: if completed and has finished_at, compute expires_at
+        if o.get("status") == "completed" and o.get("finished_at"):
+            try:
+                start = datetime.fromisoformat(o["finished_at"].replace("Z", "+00:00"))
+                months = _months_for_duration(o.get("duration_choice", "yearly"))
+                # Approximate month = 30 days for simplicity
+                expires = start + timedelta(days=months * 30)
+                days_left = (expires - now).days
+                if days_left <= reminder_days:
+                    expiring.append({
+                        "code": o["code"],
+                        "business": o.get("buyer_business", ""),
+                        "buyer_name": o.get("buyer_name", ""),
+                        "buyer_whatsapp": o.get("buyer_whatsapp", ""),
+                        "expires_at": expires.isoformat(),
+                        "days_left": days_left,
+                        "package_name": o.get("package_name", ""),
+                    })
+            except Exception:
+                pass
+
+        # Top traffic
+        if o.get("status") == "completed" and (o.get("monthly_visits") or 0) > 0:
+            top_traffic.append({
+                "code": o["code"],
+                "business": o.get("buyer_business", ""),
+                "buyer_name": o.get("buyer_name", ""),
+                "buyer_whatsapp": o.get("buyer_whatsapp", ""),
+                "monthly_visits": o.get("monthly_visits", 0),
+                "package_name": o.get("package_name", ""),
+            })
+
+        # Package distribution (any non-rejected/non-cancelled)
+        if o.get("status") not in ("rejected", "cancelled"):
+            pid = o.get("package_id", "unknown")
+            package_counts[pid] = package_counts.get(pid, 0) + 1
+
+        # Revenue from verified payments
+        for p in o.get("payments", []):
+            if p.get("status") == "verified":
+                revenue_total += p.get("amount", 0)
+                try:
+                    if datetime.fromisoformat(p.get("verified_at", "").replace("Z", "+00:00")) >= month_start:
+                        revenue_month += p.get("amount", 0)
+                except Exception:
+                    pass
+
+    expiring.sort(key=lambda x: x["days_left"])
+    top_traffic.sort(key=lambda x: -x["monthly_visits"])
+    top_traffic = top_traffic[:5]
+
+    # Strategy suggestions based on package distribution
+    dominant = max(package_counts.items(), key=lambda kv: kv[1])[0] if package_counts else None
+    strategy = ""
+    if dominant == "basic":
+        strategy = "Mayoritas klien pakai Basic. Buat campaign upgrade ke Growth dengan diskon perpanjang domain — biasanya konversi 25-35%."
+    elif dominant == "growth":
+        strategy = "Growth paling laku. Pertimbangkan bundling fitur Pro (analitik & notif WA) untuk klien Growth yang sudah ramai pengunjung."
+    elif dominant == "pro":
+        strategy = "Pro dominan = klien-mu profesional. Tawarkan layanan maintenance bulanan atau SEO add-on untuk recurring revenue."
+
+    return {
+        "expiring_domains": expiring,
+        "top_traffic_clients": top_traffic,
+        "package_distribution": package_counts,
+        "package_strategy": strategy,
+        "revenue_total": revenue_total,
+        "revenue_this_month": revenue_month,
+        "reminder_days": reminder_days,
+    }
 
 
 # ---- Public reviews ----
@@ -783,12 +1107,26 @@ async def startup_event():
         await db.admins.insert_one(
             {
                 "email": email,
+                "name": "Owner",
+                "role": "owner",
+                "active": True,
                 "pin_hash": hash_pin(pin),
                 "created_at": now_iso(),
                 "updated_at": now_iso(),
             }
         )
         logger.info(f"Seeded admin user: {email}")
+    else:
+        # Backfill missing fields for legacy admin docs
+        backfill = {}
+        if "role" not in existing:
+            backfill["role"] = "owner"
+        if "active" not in existing:
+            backfill["active"] = True
+        if "name" not in existing:
+            backfill["name"] = "Owner"
+        if backfill:
+            await db.admins.update_one({"email": email}, {"$set": backfill})
     # Indexes
     await db.admins.create_index("email", unique=True)
     await db.orders.create_index("code", unique=True)

@@ -63,6 +63,7 @@ def _create_order(session, payment_mode="dp", setup=200000, domain=300000, durat
         "package_setup_price": setup,
         "package_domain_price": domain,
         "payment_mode": payment_mode,
+        "agreed_to_terms": True,
     }
     r = session.post(f"{API}/orders", json=payload)
     assert r.status_code == 200, r.text
@@ -161,6 +162,7 @@ class TestOrderPaymentFields:
             "package_name": "Growth",
             "package_setup_price": 100_000,
             "package_domain_price": 100_000,
+            "agreed_to_terms": True,
         }
         r = session.post(f"{API}/orders", json=payload)
         assert r.status_code == 200

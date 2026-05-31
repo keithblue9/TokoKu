@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ExternalLink, Sparkles, Package, Calculator, AlertTriangle, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
+import DashboardAnalytics from "@/components/admin/DashboardAnalytics";
 
 function PageTitle({ title, subtitle }) {
   return (
@@ -129,6 +130,8 @@ export default function Dashboard() {
       </Card>
 
       <p className="text-xs text-slate-400 mt-6">Data terakhir diakses: {lastUpdate}</p>
+
+      <DashboardAnalytics />
     </div>
   );
 }

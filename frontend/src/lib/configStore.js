@@ -150,7 +150,8 @@ export function ConfigProvider({ children }) {
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === CONFIG_KEY && e.newValue) {
-        try { setConfig(JSON.parse(e.newValue)); } catch {}
+        try { setConfig(JSON.parse(e.newValue)); }
+        catch (parseErr) { console.warn("Cross-tab config sync ignored — invalid JSON:", parseErr?.message); }
       }
     };
     window.addEventListener("storage", onStorage);

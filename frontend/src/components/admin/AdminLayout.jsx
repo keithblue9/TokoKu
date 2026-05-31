@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   LayoutDashboard, Sparkles, ListTree, Workflow, Phone, Package,
   Calculator, CalendarClock, KeyRound, LogOut, ExternalLink, Menu, X,
-  MessageSquareQuote, HelpCircle, ClipboardList, Wallet
+  MessageSquareQuote, HelpCircle, ClipboardList, Wallet, FileText, Users, ScrollText
 } from "lucide-react";
 
 const MENU = [
@@ -25,7 +25,7 @@ const MENU = [
       { to: "/admin/cara-kerja", label: "Cara Kerja", icon: Workflow },
       { to: "/admin/testimoni", label: "Testimoni", icon: MessageSquareQuote },
       { to: "/admin/faq", label: "FAQ", icon: HelpCircle },
-      { to: "/admin/footer", label: "Footer & Kontak", icon: Phone },
+      { to: "/admin/footer", label: "Footer, Logo & Kontak", icon: Phone },
     ],
   },
   {
@@ -35,11 +35,16 @@ const MENU = [
       { to: "/admin/harga", label: "Kalkulator Harga", icon: Calculator },
       { to: "/admin/domain", label: "Opsi Perpanjang Domain", icon: CalendarClock },
       { to: "/admin/pembayaran", label: "Pengaturan Pembayaran", icon: Wallet },
+      { to: "/admin/terms", label: "Syarat & Ketentuan", icon: FileText, ownerOnly: true },
     ],
   },
   {
-    section: "Pengaturan",
-    items: [{ to: "/admin/password", label: "Ganti PIN", icon: KeyRound }],
+    section: "Tim & Keamanan",
+    items: [
+      { to: "/admin/team", label: "Manajemen Tim", icon: Users, ownerOnly: true },
+      { to: "/admin/aktivitas", label: "Log Aktivitas", icon: ScrollText, ownerOnly: true },
+      { to: "/admin/password", label: "Ganti PIN Saya", icon: KeyRound },
+    ],
   },
 ];
 
@@ -47,6 +52,10 @@ export default function AdminLayout() {
   const nav = useNavigate();
   const { config } = useConfig();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const profile = (() => {
+    try { return JSON.parse(localStorage.getItem("tokoku_admin_profile_v1") || "{}"); } catch { return {}; }
+  })();
+  const role = profile.role || "owner";
 
   const handleLogout = () => {
     clearToken();
@@ -57,12 +66,18 @@ export default function AdminLayout() {
   const SidebarContent = (
     <>
       <div className="flex items-center gap-2 px-5 py-5 border-b border-slate-200">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
-          {config.business.name?.charAt(0) || "T"}
-        </div>
+        {config.business.logo_image ? (
+          <img src={config.business.logo_image} alt={config.business.name} className="w-9 h-9 rounded-xl object-cover" />
+        ) : (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
+            {config.business.name?.charAt(0) || "T"}
+          </div>
+        )}
         <div className="min-w-0">
           <div className="font-display font-extrabold text-base tracking-tight text-slate-900 truncate">{config.business.name}</div>
-          <div className="text-[11px] text-slate-500">Admin Panel</div>
+          <div className="text-[11px] text-slate-500">
+            {profile.name ? `${profile.name} · ${role}` : "Admin Panel"}
+          </div>
         </div>
       </div>
 
@@ -73,7 +88,7 @@ export default function AdminLayout() {
               {section.section}
             </div>
             <ul className="space-y-1">
-              {section.items.map((item) => (
+              {section.items.filter((it) => !it.ownerOnly || role === "owner").map((item) => (
                 <li key={item.to}>
                   <NavLink
                     to={item.to}

@@ -480,7 +480,7 @@ function DeliveriesCard({ order }) {
       {items.length === 0 && <p className="text-sm text-slate-400 italic">Belum ada delivery.</p>}
       <ul className="space-y-3">
         {items.map((d, i) => (
-          <li key={i} className="text-sm border-l-2 border-indigo-200 pl-3">
+          <li key={`${d.at}-${i}`} className="text-sm border-l-2 border-indigo-200 pl-3">
             <div className="font-bold text-slate-900">{d.is_revision ? `Revisi #${i}` : "Delivery awal"}</div>
             <a href={d.url.startsWith("http") ? d.url : `https://${d.url}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline break-all">{d.url}</a>
             {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
@@ -500,7 +500,7 @@ function RevisionsCard({ order }) {
       {items.length === 0 && <p className="text-sm text-slate-400 italic">Belum ada permintaan revisi.</p>}
       <ul className="space-y-3">
         {items.map((r, i) => (
-          <li key={i} className="text-sm border-l-2 border-amber-200 pl-3">
+          <li key={`${r.at}-${i}`} className="text-sm border-l-2 border-amber-200 pl-3">
             <div className="font-bold text-slate-900">Revisi #{i + 1}</div>
             <div className="text-slate-700 italic">"{r.message}"</div>
             <div className="text-[11px] text-slate-400 mt-1">{formatDateTime(r.at)}</div>
@@ -539,7 +539,7 @@ function ChatBox({ order, onSent }) {
         {(order.messages || []).map((m, i) => {
           const isSeller = m.by === "seller";
           return (
-            <div key={i} className={`flex ${isSeller ? "justify-end" : "justify-start"}`}>
+            <div key={`${m.at}-${i}`} className={`flex ${isSeller ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isSeller ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"}`}>
                 <div className="text-[10px] font-bold uppercase opacity-70 mb-0.5">{isSeller ? "Kamu (Seller)" : "Buyer"}</div>
                 <div className="text-sm whitespace-pre-wrap">{m.text}</div>

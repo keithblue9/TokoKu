@@ -29,7 +29,8 @@ export default function AdminLogin() {
     try {
       const res = await api.login(email.trim(), pin);
       setToken(res.token);
-      toast.success("Berhasil login! Selamat datang kembali.");
+      localStorage.setItem("tokoku_admin_profile_v1", JSON.stringify({ email: res.email, name: res.name, role: res.role }));
+      toast.success(`Selamat datang, ${res.name || res.email}!`);
       setTimeout(() => nav("/admin/dashboard", { replace: true }), 200);
     } catch (e) {
       setError(e.message || "Gagal login.");

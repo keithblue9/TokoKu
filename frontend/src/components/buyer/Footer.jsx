@@ -12,9 +12,13 @@ export default function Footer() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
-                {config.business.name?.charAt(0) || "T"}
-              </div>
+              {config.business.logo_image ? (
+                <img src={config.business.logo_image} alt={config.business.name} className="w-9 h-9 rounded-xl object-cover" />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
+                  {config.business.name?.charAt(0) || "T"}
+                </div>
+              )}
               <span className="font-display font-extrabold text-xl tracking-tight text-white">
                 {config.business.name}
               </span>

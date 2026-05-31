@@ -38,9 +38,13 @@ export default function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <a href="#top" className="flex items-center gap-2" data-testid="brand-logo">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
-            {config.business.name?.charAt(0) || "T"}
-          </div>
+          {config.business.logo_image ? (
+            <img src={config.business.logo_image} alt={config.business.name} className="w-9 h-9 rounded-xl object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-400 flex items-center justify-center text-white font-extrabold font-display">
+              {config.business.name?.charAt(0) || "T"}
+            </div>
+          )}
           <span className="font-display font-extrabold text-lg tracking-tight text-slate-900">
             {config.business.name}
           </span>

@@ -17,6 +17,9 @@ import PasswordChange from "@/pages/admin/PasswordChange";
 import PaymentSettings from "@/pages/admin/PaymentSettings";
 import TestimonialsEdit from "@/pages/admin/TestimonialsEdit";
 import FAQEdit from "@/pages/admin/FAQEdit";
+import TermsEdit from "@/pages/admin/TermsEdit";
+import AdminTeam from "@/pages/admin/AdminTeam";
+import ActivityLog from "@/pages/admin/ActivityLog";
 import AdminOrders from "@/pages/admin/Orders";
 import AdminOrderDetail from "@/pages/admin/OrderDetail";
 import { getToken } from "@/lib/api";
@@ -56,6 +59,9 @@ export default function App() {
             <Route path="harga" element={<HargaCalc />} />
             <Route path="domain" element={<DomainEdit />} />
             <Route path="pembayaran" element={<PaymentSettings />} />
+            <Route path="terms" element={<TermsEdit />} />
+            <Route path="team" element={<AdminTeam />} />
+            <Route path="aktivitas" element={<ActivityLog />} />
             <Route path="password" element={<PasswordChange />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

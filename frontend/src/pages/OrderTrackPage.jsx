@@ -105,7 +105,7 @@ function Timeline({ order }) {
   return (
     <div className="space-y-4" data-testid="timeline">
       {items.map((it, i) => (
-        <div key={i} className="flex gap-3">
+        <div key={`${it.at}-${i}`} className="flex gap-3">
           <div className="flex flex-col items-center">
             <div className="w-3 h-3 rounded-full bg-indigo-500 ring-4 ring-indigo-100" />
             {i < items.length - 1 && <div className="w-px flex-1 bg-slate-200 my-1" />}
@@ -417,7 +417,7 @@ function ChatBox({ order, token, onSent }) {
         {(order.messages || []).map((m, i) => {
           const isBuyer = m.by === "buyer";
           return (
-            <div key={i} className={`flex ${isBuyer ? "justify-end" : "justify-start"}`}>
+            <div key={`${m.at}-${i}`} className={`flex ${isBuyer ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${isBuyer ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"}`}>
                 <div className="text-[10px] font-bold uppercase opacity-70 mb-0.5">{isBuyer ? "Kamu" : "Seller"}</div>
                 <div className="text-sm whitespace-pre-wrap">{m.text}</div>

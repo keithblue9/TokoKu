@@ -43,6 +43,27 @@ function CopyableRow({ label, value, testid }) {
   );
 }
 
+// Decide what to pay right now based on the order state.
+function getDueInfo(order) {
+  if (order.status === "awaiting_settlement") {
+    return { kind: "settlement", amount: order.settlement_amount };
+  }
+  const kind = order.payment_mode === "dp" ? "dp" : "full";
+  const amount = kind === "dp" ? order.dp_amount : order.total_amount;
+  return { kind, amount };
+}
+
+// Decide what to display in the "Sisa Pelunasan" tile based on the order state.
+function getRemainingTileInfo(order, kind, isSettlement) {
+  if (isSettlement) {
+    return { label: "Sudah Dibayar", value: order.amount_paid };
+  }
+  if (kind === "dp") {
+    return { label: "Sisa Pelunasan", value: order.settlement_amount };
+  }
+  return { label: "Sisa Pelunasan", value: 0 };
+}
+
 export default function PaymentSection({ order, onSubmitted }) {
   const [settings, setSettings] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
@@ -53,10 +74,8 @@ export default function PaymentSection({ order, onSubmitted }) {
   const fileRef = useRef();
 
   const isSettlement = order.status === "awaiting_settlement";
-  const kind = isSettlement ? "settlement" : order.payment_mode === "dp" ? "dp" : "full";
-  const amountDue =
-    kind === "settlement" ? order.settlement_amount :
-    kind === "dp" ? order.dp_amount : order.total_amount;
+  const { kind, amount: amountDue } = getDueInfo(order);
+  const remainingTile = getRemainingTileInfo(order, kind, isSettlement);
 
   useEffect(() => {
     api.getPaymentSettings().then(setSettings).catch(() => setSettings({}));
@@ -137,9 +156,9 @@ export default function PaymentSection({ order, onSubmitted }) {
                 <div className="text-xl sm:text-2xl font-extrabold font-display text-white mt-1">{formatRupiah(amountDue)}</div>
               </div>
               <div className="bg-white rounded-2xl p-4 border border-slate-200">
-                <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{isSettlement ? "Sudah Dibayar" : "Sisa Pelunasan"}</div>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{remainingTile.label}</div>
                 <div className="text-lg font-extrabold font-display text-slate-900 mt-1">
-                  {formatRupiah(isSettlement ? order.amount_paid : (kind === "dp" ? order.settlement_amount : 0))}
+                  {formatRupiah(remainingTile.value)}
                 </div>
               </div>
             </div>

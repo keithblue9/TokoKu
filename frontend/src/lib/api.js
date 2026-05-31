@@ -102,6 +102,25 @@ export const api = {
 
   // Public reviews
   publicReviews: () => request("GET", "/reviews"),
+
+  // Terms & Conditions
+  getTerms: () => request("GET", "/settings/terms"),
+  updateTerms: (content) => request("PUT", "/admin/settings/terms", { body: { content }, auth: true }),
+
+  // Team management (owner only)
+  listTeam: () => request("GET", "/admin/team", { auth: true }),
+  addTeamMember: (payload) => request("POST", "/admin/team", { body: payload, auth: true }),
+  updateTeamMember: (email, payload) => request("PUT", `/admin/team/${encodeURIComponent(email)}`, { body: payload, auth: true }),
+  deleteTeamMember: (email) => request("DELETE", `/admin/team/${encodeURIComponent(email)}`, { auth: true }),
+
+  // Activity log
+  listActivity: (limit = 200) => request("GET", `/admin/activity?limit=${limit}`, { auth: true }),
+
+  // Order analytics
+  updateOrderVisits: (code, monthly_visits) =>
+    request("PUT", `/admin/orders/${code}/visits`, { body: { monthly_visits }, auth: true }),
+  analyticsDashboard: (reminder_days = 30) =>
+    request("GET", `/admin/analytics/dashboard?reminder_days=${reminder_days}`, { auth: true }),
 };
 
 // Status meta — central label/color map used across UI.

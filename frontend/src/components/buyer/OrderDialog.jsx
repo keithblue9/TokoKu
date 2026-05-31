@@ -22,6 +22,9 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
   const [brief, setBrief] = useState("");
   const [paymentMode, setPaymentMode] = useState("dp");
   const [dpPercent, setDpPercent] = useState(50);
+  const [step, setStep] = useState("form"); // "form" | "terms" | "submitting"
+  const [terms, setTerms] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState(null);
@@ -29,22 +32,29 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
   useEffect(() => {
     if (open) {
       api.getPaymentSettings().then((s) => setDpPercent(s.dp_percent || 50)).catch(() => {});
+      api.getTerms().then((r) => setTerms(r.content || "")).catch(() => {});
     }
   }, [open]);
 
   if (!pkg) return null;
 
-  const domainPrice = duration === "monthly" ? prices.monthly : duration === "twoYear" ? prices.twoYear : prices.yearly;
-  // First year billing total
-  const total = duration === "monthly" ? prices.totalFirstYearMonthly : duration === "twoYear" ? (prices.setup + prices.twoYear) : prices.totalFirstYearYearly;
+  // Map the duration tab to the right "per-period" domain price and first-year total.
+  const DURATION_MAP = {
+    monthly: { domain: prices.monthly, total: prices.totalFirstYearMonthly, label: "/bulan" },
+    twoYear: { domain: prices.twoYear, total: prices.setup + prices.twoYear, label: "/2 tahun" },
+    yearly:  { domain: prices.yearly,  total: prices.totalFirstYearYearly,   label: "/tahun" },
+  };
+  const dur = DURATION_MAP[duration] || DURATION_MAP.yearly;
+  const domainPrice = dur.domain;
+  const total = dur.total;
   const dpAmount = Math.round(total * dpPercent / 100);
 
   const reset = () => {
     setName(""); setWhatsapp(""); setBusiness(""); setBrief(""); setPaymentMode("dp");
-    setError(""); setCreated(null);
+    setError(""); setCreated(null); setStep("form"); setAgreed(false);
   };
 
-  const handleSubmit = async (e) => {
+  const goToTerms = (e) => {
     e.preventDefault();
     setError("");
     if (name.trim().length < 2) return setError("Nama minimal 2 huruf.");
@@ -52,11 +62,17 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
     if (wa.length < 9) return setError("Nomor WhatsApp tidak valid.");
     if (business.trim().length < 1) return setError("Mohon isi nama bisnis kamu.");
     if (brief.trim().length < 10) return setError("Brief minimal 10 karakter.");
+    setStep("terms");
+  };
+
+  const handleSubmit = async () => {
+    if (!agreed) return setError("Mohon centang persetujuan dulu.");
+    setError("");
     setSubmitting(true);
     try {
       const res = await api.createOrder({
         buyer_name: name,
-        buyer_whatsapp: wa,
+        buyer_whatsapp: whatsapp.replace(/\D/g, ""),
         buyer_business: business,
         buyer_brief: brief,
         package_id: pkg.id,
@@ -65,12 +81,15 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
         package_setup_price: prices.setup,
         package_domain_price: domainPrice,
         payment_mode: paymentMode,
+        agreed_to_terms: true,
       });
       try {
         const arr = JSON.parse(localStorage.getItem("tokoku_my_orders") || "[]");
         arr.unshift({ code: res.code, token: res.tracking_token, package: pkg.name, at: Date.now() });
         localStorage.setItem("tokoku_my_orders", JSON.stringify(arr.slice(0, 10)));
-      } catch {}
+      } catch (storageErr) {
+        console.warn("Could not cache tracking link locally:", storageErr?.message);
+      }
       setCreated(res);
       toast.success("Order kamu terkirim!");
     } catch (err) {
@@ -94,7 +113,7 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-w-lg rounded-3xl p-0 overflow-hidden" data-testid="order-dialog">
-        {!created ? (
+        {!created && step === "form" ? (
           <>
             <DialogHeader className="px-6 pt-6 pb-2">
               <DialogTitle className="text-xl font-extrabold font-display tracking-tight text-slate-900">
@@ -108,7 +127,7 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
             <div className="px-6 py-3 bg-slate-50 border-y border-slate-100 text-xs flex justify-between items-center">
               <span className="text-slate-500">Estimasi biaya:</span>
               <span className="font-extrabold font-display text-slate-900">
-                {formatRupiah(prices.setup)} setup + {formatRupiah(duration === "monthly" ? prices.monthly : duration === "twoYear" ? prices.twoYear : prices.yearly)} domain {duration === "monthly" ? "/bulan" : duration === "twoYear" ? "/2 tahun" : "/tahun"}
+                {formatRupiah(prices.setup)} setup + {formatRupiah(domainPrice)} domain {dur.label}
               </span>
             </div>
 
@@ -171,9 +190,63 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
                 className="w-full h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
                 data-testid="order-submit"
               >
-                {submitting ? "Mengirim..." : "Kirim Order"}
+                Lanjut: Baca Syarat & Ketentuan →
               </Button>
             </form>
+          </>
+        ) : step === "terms" ? (
+          <>
+            <DialogHeader className="px-6 pt-6 pb-2">
+              <DialogTitle className="text-xl font-extrabold font-display tracking-tight text-slate-900">
+                Syarat & Ketentuan
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500">
+                Mohon baca perjanjian kerjasama di bawah ini sebelum melanjutkan.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="px-6 pb-2">
+              <div className="max-h-72 overflow-y-auto bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed" data-testid="terms-content-display">
+                {terms || "Memuat syarat & ketentuan..."}
+              </div>
+            </div>
+            <div className="px-6 pb-6 pt-4 space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer" data-testid="terms-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-1 w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  data-testid="terms-checkbox"
+                />
+                <span className="text-sm text-slate-700">
+                  <strong>Saya menyetujui</strong> seluruh syarat & ketentuan kerjasama di atas, dan siap untuk lanjut ke pembayaran.
+                </span>
+              </label>
+              {error && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("form")}
+                  className="rounded-full font-bold"
+                  data-testid="terms-back"
+                >
+                  ← Kembali
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!agreed || submitting}
+                  className="flex-1 h-11 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:opacity-50"
+                  data-testid="terms-submit"
+                >
+                  {submitting ? "Mengirim..." : "Setuju & Kirim Order"}
+                </Button>
+              </div>
+            </div>
           </>
         ) : (
           <div className="p-6 sm:p-8">
