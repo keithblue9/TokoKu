@@ -131,7 +131,7 @@ export default function OrderDialog({ open, onOpenChange, packageId, duration = 
               </span>
             </div>
 
-            <form onSubmit={handleSubmit} className="px-6 pb-6 pt-5 space-y-4">
+            <form onSubmit={goToTerms} className="px-6 pb-6 pt-5 space-y-4">
               <div>
                 <Label className="text-sm font-semibold mb-1.5 block">Nama Kamu</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl" placeholder="Nama lengkap" data-testid="order-name" />

@@ -63,6 +63,30 @@ def create_access_token(email: str) -> str:
     return jwt.encode(payload, _jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
+# Granular permissions used to gate admin endpoints.
+ALL_PERMISSIONS = [
+    "view_orders",
+    "update_order_status",
+    "verify_payment",
+    "view_finance_report",
+    "manage_team",
+    "manage_content",
+]
+OWNER_ONLY_PERMISSIONS = {"view_finance_report", "manage_team", "manage_content"}
+ROLE_DEFAULT_PERMISSIONS = {
+    "owner": list(ALL_PERMISSIONS),
+    "staff_ops": ["view_orders", "update_order_status"],
+    "staff_finance": ["view_orders", "verify_payment"],
+}
+
+
+def effective_permissions(admin_doc: dict) -> List[str]:
+    """Owner always has full access; staff use explicit `permissions` list."""
+    if admin_doc.get("role") == "owner":
+        return list(ALL_PERMISSIONS)
+    return list(admin_doc.get("permissions") or [])
+
+
 async def require_admin(authorization: Optional[str] = Header(default=None)) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Tidak terautentikasi.")
@@ -80,6 +104,7 @@ async def require_admin(authorization: Optional[str] = Header(default=None)) -> 
             "email": admin["email"],
             "name": admin.get("name", admin["email"]),
             "role": admin.get("role", "owner"),
+            "permissions": effective_permissions(admin),
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Sesi habis. Silakan login ulang.")
@@ -87,9 +112,17 @@ async def require_admin(authorization: Optional[str] = Header(default=None)) -> 
         raise HTTPException(status_code=401, detail="Token tidak valid.")
 
 
-async def require_owner(admin: dict = Depends(lambda: None)) -> dict:
-    # Wrap require_admin then ensure role == owner
-    raise RuntimeError("use require_owner_dep instead")  # placeholder, not used
+def require_permission(perm: str):
+    """Dependency factory that enforces an admin has the given permission."""
+    async def _dep(authorization: Optional[str] = Header(default=None)) -> dict:
+        admin = await require_admin(authorization)
+        if perm not in admin.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail="Akses ditolak. Akun kamu tidak punya izin untuk aksi ini.",
+            )
+        return admin
+    return _dep
 
 
 async def require_owner_dep(authorization: Optional[str] = Header(default=None)) -> dict:
@@ -132,20 +165,23 @@ class LoginResponse(BaseModel):
     email: str
     name: str = ""
     role: str = "owner"
+    permissions: List[str] = []
 
 
 class TeamMemberCreate(BaseModel):
     email: EmailStr
     pin: str = Field(min_length=6, max_length=6)
     name: str = Field(min_length=2, max_length=100)
-    role: Literal["owner", "staff"] = "staff"
+    role: Literal["owner", "staff_ops", "staff_finance"] = "staff_ops"
+    permissions: Optional[List[str]] = None
 
 
 class TeamMemberUpdate(BaseModel):
     name: Optional[str] = None
-    role: Optional[Literal["owner", "staff"]] = None
+    role: Optional[Literal["owner", "staff_ops", "staff_finance"]] = None
     active: Optional[bool] = None
     reset_pin: Optional[str] = None  # if provided, sets new PIN
+    permissions: Optional[List[str]] = None
 
 
 class TermsPayload(BaseModel):
@@ -167,7 +203,8 @@ async def login(payload: LoginPayload):
         raise HTTPException(status_code=403, detail="Akun kamu telah dinonaktifkan.")
     role = admin.get("role", "owner")
     name = admin.get("name", email)
-    return LoginResponse(token=create_access_token(email), email=email, name=name, role=role)
+    perms = effective_permissions(admin)
+    return LoginResponse(token=create_access_token(email), email=email, name=name, role=role, permissions=perms)
 
 
 @api.post("/auth/change-pin")
@@ -867,14 +904,32 @@ async def update_terms(payload: TermsPayload, admin: dict = Depends(require_owne
 
 
 # ---- Team Management (owner only) ----
+def _sanitize_permissions(role: str, perms: Optional[List[str]]) -> List[str]:
+    """Validate & clamp permissions list. Owner = all. Staff cannot hold owner-only perms."""
+    if role == "owner":
+        return list(ALL_PERMISSIONS)
+    if perms is None:
+        return list(ROLE_DEFAULT_PERMISSIONS.get(role, []))
+    cleaned = []
+    for p in perms:
+        if p not in ALL_PERMISSIONS:
+            continue
+        if p in OWNER_ONLY_PERMISSIONS:
+            continue  # staff cannot have owner-only perms
+        cleaned.append(p)
+    # dedupe & preserve canonical order
+    return [p for p in ALL_PERMISSIONS if p in set(cleaned)]
+
+
 def _serialize_admin(a: dict) -> dict:
     if not a:
         return a
     return {
         "email": a.get("email"),
         "name": a.get("name", ""),
-        "role": a.get("role", "staff"),
+        "role": a.get("role", "staff_ops"),
         "active": a.get("active", True),
+        "permissions": effective_permissions(a),
         "created_at": a.get("created_at"),
         "updated_at": a.get("updated_at"),
     }
